@@ -1,0 +1,428 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>MA 2080 Electrification Planner</title>
+    <link rel="stylesheet" href="index.css">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Open+Sans:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <script id="MathJax-script" async src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-mml-chtml.js"></script>
+<link rel="stylesheet" href="/index.css">
+</head>
+<body>
+    <header>
+        <h1>MA 2080 Electrification Planner</h1>
+        <p>Estimate the electrical and financial impact of switching from natural gas to electric appliances.</p>
+    </header>
+    <main>
+        <div class="tabs">
+            <button id="tab-planner" class="tab-button active" role="tab" aria-selected="true" aria-controls="planner-content">Planner</button>
+            <button id="tab-report" class="tab-button" role="tab" aria-selected="false" aria-controls="report-content-wrapper">Report</button>
+            <button id="tab-save-load" class="tab-button" role="tab" aria-selected="false" aria-controls="save-load-content">Save/Load</button>
+        </div>
+
+        <div id="planner-content" class="tab-content active" role="tabpanel" aria-labelledby="tab-planner">
+            <section id="inputs" aria-labelledby="inputs-heading">
+                <h2 id="inputs-heading" class="sr-only">Inputs</h2>
+                <div class="card">
+                    <h3 class="card-title">Facility Information</h3>
+                    <div class="form-grid">
+                        <div class="form-field">
+                            <label for="facility-type">Facility Type
+                                <div class="tooltip-container">
+                                    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" class="tooltip-icon">
+                                      <path fill-rule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7-4a1 1 0 11-2 0 1 1 0 012 0zM9 9a1 1 0 000 2v3a1 1 0 001 1h1a1 1 0 100-2v-3a1 1 0 00-1-1H9z" clip-rule="evenodd" />
+                                    </svg>
+                                    <span class="tooltip-text">Select the type of building. This sets a baseline for typical annual gas usage, which you can then adjust.</span>
+                                </div>
+                            </label>
+                            <select id="facility-type" name="facility-type">
+                                <option value="Residential">Residential</option>
+                                <option value="Small Commercial">Small Commercial</option>
+                                <option value="Large Commercial">Large Commercial</option>
+                                <option value="Industrial">Industrial</option>
+                                <option value="Restaurant">Restaurant</option>
+                                <option value="Medical">Medical Facility</option>
+                                <option value="Nursing Home">Nursing Home</option>
+                            </select>
+                        </div>
+                        <div class="form-field">
+                            <label for="climate-zone">Climate Zone
+                                <div class="tooltip-container">
+                                    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" class="tooltip-icon">
+                                      <path fill-rule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7-4a1 1 0 11-2 0 1 1 0 012 0zM9 9a1 1 0 000 2v3a1 1 0 001 1h1a1 1 0 100-2v-3a1 1 0 00-1-1H9z" clip-rule="evenodd" />
+                                    </svg>
+                                    <span class="tooltip-text">Select your climate zone. Colder zones slightly reduce the seasonal efficiency of heat pumps, affecting energy use and savings calculations.</span>
+                                </div>
+                            </label>
+                            <select id="climate-zone" name="climate-zone">
+                                <option value="Zone5" selected>Zone 5 (Most of MA)</option>
+                                <option value="Zone6">Zone 6 (Berkshires)</option>
+                            </select>
+                        </div>
+                        <div class="form-field">
+                            <label for="address-number">Address Number</label>
+                            <input type="text" id="address-number" name="address-number" value="45">
+                        </div>
+                        <div class="form-field">
+                            <label for="street-name">Street Name</label>
+                            <input type="text" id="street-name" name="street-name" value="Main Street">
+                        </div>
+                        <div class="form-field">
+                            <label for="town">Town</label>
+                            <input type="text" id="town" name="town" value="Gardner">
+                        </div>
+                    </div>
+                </div>
+                 <div class="card">
+                    <h3 class="card-title">Annual Gas Usage</h3>
+                    <div class="form-grid">
+                        <div class="form-field">
+                            <label for="annual-heating-therms">Heating Usage (therms)
+                                 <div class="tooltip-container">
+                                    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" class="tooltip-icon">
+                                      <path fill-rule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7-4a1 1 0 11-2 0 1 1 0 012 0zM9 9a1 1 0 000 2v3a1 1 0 001 1h1a1 1 0 100-2v-3a1 1 0 00-1-1H9z" clip-rule="evenodd" />
+                                    </svg>
+                                    <span class="tooltip-text">Enter your total annual gas usage for heating, in therms. You can find this on your gas utility bills, often as a yearly summary.</span>
+                                </div>
+                            </label>
+                            <input type="number" id="annual-heating-therms" name="annual-heating-therms" value="700" min="0" step="10">
+                        </div>
+                         <div class="form-field">
+                            <label for="annual-non-heating-therms">Non-Heating Usage (therms)
+                                <div class="tooltip-container">
+                                    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" class="tooltip-icon">
+                                      <path fill-rule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7-4a1 1 0 11-2 0 1 1 0 012 0zM9 9a1 1 0 000 2v3a1 1 0 001 1h1a1 1 0 100-2v-3a1 1 0 00-1-1H9z" clip-rule="evenodd" />
+                                    </svg>
+                                    <span class="tooltip-text">Enter your total annual gas usage for non-heating appliances like water heaters, ranges, and dryers. This is your 'base' usage, often found on utility bills.</span>
+                                </div>
+                            </label>
+                            <input type="number" id="annual-non-heating-therms" name="annual-non-heating-therms" value="250" min="0" step="10">
+                        </div>
+                    </div>
+                </div>
+                <div class="card">
+                    <h3 class="card-title">Current Electrical Service</h3>
+                    <div class="form-grid">
+                        <div class="form-field">
+                            <label for="panel-amperage">Main Panel Amperage
+                                 <div class="tooltip-container">
+                                    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" class="tooltip-icon">
+                                      <path fill-rule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7-4a1 1 0 11-2 0 1 1 0 012 0zM9 9a1 1 0 000 2v3a1 1 0 001 1h1a1 1 0 100-2v-3a1 1 0 00-1-1H9z" clip-rule="evenodd" />
+                                    </svg>
+                                    <span class="tooltip-text">The capacity of your main electrical panel in Amperes (A). This is usually printed on the main breaker switch at the top of the panel.</span>
+                                </div>
+                            </label>
+                            <select id="panel-amperage" name="panel-amperage">
+                                <option value="100">100 A</option>
+                                <option value="125">125 A</option>
+                                <option value="150">150 A</option>
+                                <option value="200" selected>200 A</option>
+                                <option value="400">400 A</option>
+                            </select>
+                        </div>
+                        <div class="form-field">
+                            <label for="voltage">Voltage
+                                 <div class="tooltip-container">
+                                    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" class="tooltip-icon">
+                                      <path fill-rule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7-4a1 1 0 11-2 0 1 1 0 012 0zM9 9a1 1 0 000 2v3a1 1 0 001 1h1a1 1 0 100-2v-3a1 1 0 00-1-1H9z" clip-rule="evenodd" />
+                                    </svg>
+                                    <span class="tooltip-text">The standard voltage for your electrical service. Most residential and small commercial buildings in the US use 240V.</span>
+                                </div>
+                            </label>
+                            <input type="number" id="voltage" name="voltage" value="240" step="1">
+                        </div>
+                         <div class="form-field">
+                            <label for="breaker-spaces">Available Breaker Spaces
+                                 <div class="tooltip-container">
+                                    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" class="tooltip-icon">
+                                      <path fill-rule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7-4a1 1 0 11-2 0 1 1 0 012 0zM9 9a1 1 0 000 2v3a1 1 0 001 1h1a1 1 0 100-2v-3a1 1 0 00-1-1H9z" clip-rule="evenodd" />
+                                    </svg>
+                                    <span class="tooltip-text">The number of empty slots in your electrical panel where new circuit breakers can be installed. Each new 240V appliance typically requires two spaces.</span>
+                                </div>
+                            </label>
+                            <input type="number" id="breaker-spaces" name="breaker-spaces" value="4" min="0">
+                        </div>
+                         <div class="form-field">
+                            <label for="efficiency-tier">Efficiency Target
+                                 <div class="tooltip-container">
+                                    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" class="tooltip-icon">
+                                      <path fill-rule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7-4a1 1 0 11-2 0 1 1 0 012 0zM9 9a1 1 0 000 2v3a1 1 0 001 1h1a1 1 0 100-2v-3a1 1 0 00-1-1H9z" clip-rule="evenodd" />
+                                    </svg>
+                                    <span class="tooltip-text">Select the desired efficiency level for new electric appliances. Higher efficiency costs more upfront but results in lower annual energy costs and greater savings.</span>
+                                </div>
+                            </label>
+                            <select id="efficiency-tier" name="efficiency-tier">
+                                <option value="Standard">Standard</option>
+                                <option value="High" selected>High</option>
+                                <option value="Premium">Premium</option>
+                            </select>
+                        </div>
+                    </div>
+                </div>
+                 <div class="card">
+                    <h3 class="card-title">Utility Costs & Projections</h3>
+                     <div class="form-grid cost-grid">
+                        <div class="form-field">
+                            <label for="gas-price">Gas Price ($/therm)
+                                 <div class="tooltip-container">
+                                    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" class="tooltip-icon">
+                                      <path fill-rule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7-4a1 1 0 11-2 0 1 1 0 012 0zM9 9a1 1 0 000 2v3a1 1 0 001 1h1a1 1 0 100-2v-3a1 1 0 00-1-1H9z" clip-rule="evenodd" />
+                                    </svg>
+                                    <span class="tooltip-text">Your current cost for natural gas per therm. Check your utility bill for the 'supply' and 'delivery' charges combined.</span>
+                                </div>
+                            </label>
+                            <div class="input-with-unit unit-left">
+                                <span>$</span>
+                                <input type="number" id="gas-price" name="gas-price" value="1.50" step="0.01" min="0">
+                            </div>
+                        </div>
+                        <div class="form-field">
+                            <label for="electricity-price">Elec Price ($/kWh)
+                                 <div class="tooltip-container">
+                                    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" class="tooltip-icon">
+                                      <path fill-rule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7-4a1 1 0 11-2 0 1 1 0 012 0zM9 9a1 1 0 000 2v3a1 1 0 001 1h1a1 1 0 100-2v-3a1 1 0 00-1-1H9z" clip-rule="evenodd" />
+                                    </svg>
+                                    <span class="tooltip-text">Your current cost for electricity per kilowatt-hour (kWh). Check your utility bill for the 'supply' and 'delivery' charges combined.</span>
+                                </div>
+                            </label>
+                            <div class="input-with-unit unit-left">
+                                 <span>$</span>
+                                <input type="number" id="electricity-price" name="electricity-price" value="0.28" step="0.01" min="0">
+                            </div>
+                        </div>
+                         <div class="form-field">
+                            <label for="gas-price-escalation">Gas Δ (%/yr)
+                                 <div class="tooltip-container">
+                                    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" class="tooltip-icon">
+                                      <path fill-rule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7-4a1 1 0 11-2 0 1 1 0 012 0zM9 9a1 1 0 000 2v3a1 1 0 001 1h1a1 1 0 100-2v-3a1 1 0 00-1-1H9z" clip-rule="evenodd" />
+                                    </svg>
+                                    <span class="tooltip-text">The projected standard annual increase in natural gas prices. A default of 2% is used for typical inflation.</span>
+                                </div>
+                            </label>
+                            <div class="input-with-unit unit-right">
+                                <input type="number" id="gas-price-escalation" name="gas-price-escalation" value="2" step="0.1" min="0">
+                                <span>%</span>
+                            </div>
+                        </div>
+                        <div class="form-field">
+                            <label for="electricity-price-escalation">Elec Δ (%/yr)
+                                 <div class="tooltip-container">
+                                    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" class="tooltip-icon">
+                                      <path fill-rule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7-4a1 1 0 11-2 0 1 1 0 012 0zM9 9a1 1 0 000 2v3a1 1 0 001 1h1a1 1 0 100-2v-3a1 1 0 00-1-1H9z" clip-rule="evenodd" />
+                                    </svg>
+                                    <span class="tooltip-text">The projected standard annual increase in electricity prices. A default of 2% is used for typical inflation.</span>
+                                </div>
+                            </label>
+                            <div class="input-with-unit unit-right">
+                                <input type="number" id="electricity-price-escalation" name="electricity-price-escalation" value="2" step="0.1" min="0">
+                                <span>%</span>
+                            </div>
+                        </div>
+                         <div class="form-field">
+                            <label for="high-risk-gas-escalation">High-Risk Gas Δ
+                               <div class="tooltip-container">
+                                    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" class="tooltip-icon">
+                                      <path fill-rule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7-4a1 1 0 11-2 0 1 1 0 012 0zM9 9a1 1 0 000 2v3a1 1 0 001 1h1a1 1 0 100-2v-3a1 1 0 00-1-1H9z" clip-rule="evenodd" />
+                                    </svg>
+                                    <span class="tooltip-text">Potential annual gas rate increase for remaining customers as the state transitions to electrification, based on DPU dockets on stranded asset risk.</span>
+                                </div>
+                            </label>
+                            <div class="input-with-unit unit-right">
+                                <input type="number" id="high-risk-gas-escalation" name="high-risk-gas-escalation" value="7" step="0.1" min="0">
+                                <span>%</span>
+                            </div>
+                        </div>
+                     </div>
+                </div>
+                <div class="card">
+                    <h3 class="card-title">Natural Gas Appliances to Electrify</h3>
+                    <div id="appliances-list">
+                        <p class="empty-state">No appliances added yet.</p>
+                    </div>
+                    <button id="add-appliance-btn" class="button-primary">
+                        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" width="20" height="20"><path d="M10.75 4.75a.75.75 0 00-1.5 0v4.5h-4.5a.75.75 0 000 1.5h4.5v4.5a.75.75 0 001.5 0v-4.5h4.5a.75.75 0 000-1.5h-4.5v-4.5z" /></svg>
+                        <span>Add Appliance</span>
+                    </button>
+                </div>
+            </section>
+            <section id="report-summary-column" aria-labelledby="report-heading">
+                 <div class="card report-card">
+                    <h2 id="report-heading" class="card-title">Your Electrification Report</h2>
+                    
+                    <div id="report-summary" class="report-summary">
+                        <div class="summary-metric">
+                            <span class="summary-metric-label">Net Project Cost</span>
+                            <span id="summary-total-cost" class="summary-metric-value">$0 - $0</span>
+                        </div>
+                         <div class="summary-metric">
+                            <span class="summary-metric-label">Estimated Rebates</span>
+                            <span id="summary-total-rebates" class="summary-metric-value status-sufficient">$0</span>
+                        </div>
+                        <div class="summary-metric">
+                            <span class="summary-metric-label">Simple Payback Period</span>
+                            <span id="summary-payback-period" class="summary-metric-value">N/A</span>
+                        </div>
+                         <div class="summary-metric">
+                            <span class="summary-metric-label">Net Annual Savings</span>
+                            <span id="summary-annual-savings" class="summary-metric-value status-sufficient">$0</span>
+                        </div>
+                         <div class="summary-metric">
+                            <span class="summary-metric-label">Est. 15-Year Savings</span>
+                            <span id="summary-lifetime-savings" class="summary-metric-value status-sufficient">$0</span>
+                        </div>
+                         <div class="summary-metric">
+                            <span class="summary-metric-label">15-Yr Savings (High-Risk)</span>
+                            <span id="summary-lifetime-savings-high-risk" class="summary-metric-value status-sufficient">$0</span>
+                        </div>
+                        <div class="summary-metric">
+                            <span class="summary-metric-label">Annual GHG Reduction (20-yr)
+                                <div class="tooltip-container">
+                                    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" class="tooltip-icon">
+                                      <path fill-rule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7-4a1 1 0 11-2 0 1 1 0 012 0zM9 9a1 1 0 000 2v3a1 1 0 001 1h1a1 1 0 100-2v-3a1 1 0 00-1-1H9z" clip-rule="evenodd" />
+                                    </svg>
+                                    <span class="tooltip-text">Total greenhouse gas reduction in CO₂ equivalent, including methane's potent short-term impact (GWP over 20 years).</span>
+                                </div>
+                            </span>
+                            <span id="summary-ghg-reduction-20yr" class="summary-metric-value status-sufficient">0 kg CO₂e</span>
+                        </div>
+                         <div class="summary-metric">
+                            <span class="summary-metric-label">Annual GHG Reduction (100-yr)
+                                <div class="tooltip-container">
+                                    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" class="tooltip-icon">
+                                      <path fill-rule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7-4a1 1 0 11-2 0 1 1 0 012 0zM9 9a1 1 0 000 2v3a1 1 0 001 1h1a1 1 0 100-2v-3a1 1 0 00-1-1H9z" clip-rule="evenodd" />
+                                    </svg>
+                                    <span class="tooltip-text">Total greenhouse gas reduction in CO₂ equivalent, based on the standard 100-year impact (GWP over 100 years).</span>
+                                </div>
+                            </span>
+                            <span id="summary-ghg-reduction-100yr" class="summary-metric-value status-sufficient">0 kg CO₂e</span>
+                        </div>
+                        <div class="summary-metric">
+                            <span class="summary-metric-label">GHG Reduction Equivalent
+                                <div class="tooltip-container">
+                                    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" class="tooltip-icon">
+                                      <path fill-rule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7-4a1 1 0 11-2 0 1 1 0 012 0zM9 9a1 1 0 000 2v3a1 1 0 001 1h1a1 1 0 100-2v-3a1 1 0 00-1-1H9z" clip-rule="evenodd" />
+                                    </svg>
+                                    <span class="tooltip-text">Translates the 100-year GHG reduction into the equivalent number of typical gasoline-powered cars taken off the road for one year (based on EPA estimates).</span>
+                                </div>
+                            </span>
+                            <span id="summary-ghg-equivalent" class="summary-metric-value status-sufficient">0 cars</span>
+                        </div>
+                    </div>
+    
+                    <div id="report-details">
+                        <!-- Detailed breakdowns will be inserted here by the script -->
+                    </div>
+                </div>
+            </section>
+        </div>
+
+        <div id="report-content-wrapper" class="tab-content" role="tabpanel" aria-labelledby="tab-report">
+             <div class="card full-report-card">
+                <div class="report-actions">
+                    <button id="export-pdf-btn" class="button-secondary">
+                        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" width="20" height="20"><path d="M10.75 2.75a.75.75 0 00-1.5 0v8.614L6.295 8.235a.75.75 0 10-1.09 1.03l4.25 4.5a.75.75 0 001.09 0l4.25-4.5a.75.75 0 00-1.09-1.03l-2.955 3.129V2.75z" /><path d="M3.5 12.75a.75.75 0 00-1.5 0v2.5A2.75 2.75 0 004.75 18h10.5A2.75 2.75 0 0018 15.25v-2.5a.75.75 0 00-1.5 0v2.5c0 .69-.56 1.25-1.25 1.25H4.75c-.69 0-1.25-.56-1.25-1.25v-2.5z" /></svg>
+                        <span>Export to PDF</span>
+                    </button>
+                </div>
+                <div id="full-report-content">
+                    <!-- The full, detailed report will be inserted here -->
+                </div>
+            </div>
+        </div>
+
+        <div id="save-load-content" class="tab-content" role="tabpanel" aria-labelledby="tab-save-load">
+            <div class="card">
+                <h3 class="card-title">Save Project</h3>
+                <p>Save all current inputs and appliance configurations to a JSON file on your computer. You can load this file later to continue your work.</p>
+                <button id="save-project-btn" class="button-primary">
+                    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" width="20" height="20"><path d="M10.75 2.75a.75.75 0 00-1.5 0v8.614L6.295 8.235a.75.75 0 10-1.09 1.03l4.25 4.5a.75.75 0 001.09 0l4.25-4.5a.75.75 0 00-1.09-1.03l-2.955 3.129V2.75z" /><path d="M3.5 12.75a.75.75 0 00-1.5 0v2.5A2.75 2.75 0 004.75 18h10.5A2.75 2.75 0 0018 15.25v-2.5a.75.75 0 00-1.5 0v2.5c0 .69-.56 1.25-1.25 1.25H4.75c-.69 0-1.25-.56-1.25-1.25v-2.5z" /></svg>
+                    <span>Save Project File</span>
+                </button>
+            </div>
+            <div class="card">
+                <h3 class="card-title">Load Project</h3>
+                <p>Load a project from a previously saved JSON file. This will overwrite all current settings.</p>
+                <div class="form-field">
+                    <label for="load-project-input" class="button-secondary file-input-label">
+                        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" width="20" height="20"><path d="M9.25 1.75a.75.75 0 01.75.75v8.614l2.955-3.129a.75.75 0 011.09 1.03l-4.25 4.5a.75.75 0 01-1.09 0l-4.25-4.5a.75.75 0 011.09-1.03L9.25 11.114V2.5a.75.75 0 01.75-.75z" /><path d="M3.5 12.75a.75.75 0 00-1.5 0v2.5A2.75 2.75 0 004.75 18h10.5A2.75 2.75 0 0018 15.25v-2.5a.75.75 0 00-1.5 0v2.5c0 .69-.56 1.25-1.25 1.25H4.75c-.69 0-1.25-.56-1.25-1.25v-2.5z" /></svg>
+                        <span>Choose Project File...</span>
+                    </label>
+                    <input type="file" id="load-project-input" accept=".json" class="sr-only">
+                    <span id="loaded-filename" class="loaded-filename">No file selected.</span>
+                </div>
+            </div>
+        </div>
+    </main>
+
+    <footer>
+        Written by Tim Bickford Version 1.0
+    </footer>
+
+    <div id="modal-overlay" class="hidden"></div>
+    <div id="appliance-modal" class="modal hidden" role="dialog" aria-modal="true" aria-labelledby="modal-title">
+        <div class="modal-header">
+            <h3 id="modal-title" class="modal-title">Add Appliance</h3>
+            <button id="modal-close-btn" class="modal-close-btn" aria-label="Close">
+                <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" width="24" height="24">
+                  <path d="M6.28 5.22a.75.75 0 00-1.06 1.06L8.94 10l-3.72 3.72a.75.75 0 101.06 1.06L10 11.06l3.72 3.72a.75.75 0 101.06-1.06L11.06 10l3.72-3.72a.75.75 0 00-1.06-1.06L10 8.94 6.28 5.22z" />
+                </svg>
+            </button>
+        </div>
+        <div id="modal-appliance-grid" class="modal-grid">
+            <!-- Appliance buttons will be inserted here -->
+        </div>
+    </div>
+
+    <template id="appliance-row-template">
+       <div class="appliance-entry">
+            <div class="appliance-row" role="group" aria-label="Appliance Input">
+                <div class="form-field include-field">
+                    <label for="include-appliance-{id}">Plan</label>
+                    <input type="checkbox" id="include-appliance-{id}" class="include-in-plan" name="include-in-plan" checked>
+                </div>
+                <div class="form-field appliance-name-field">
+                    <label>Appliance</label>
+                    <div class="appliance-name">Appliance Name Here</div>
+                </div>
+                <div class="form-field">
+                    <label>BTU/hr Rating
+                        <div class="tooltip-container">
+                            <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" class="tooltip-icon">
+                              <path fill-rule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7-4a1 1 0 11-2 0 1 1 0 012 0zM9 9a1 1 0 000 2v3a1 1 0 001 1h1a1 1 0 100-2v-3a1 1 0 00-1-1H9z" clip-rule="evenodd" />
+                            </svg>
+                            <span class="tooltip-text">The heat output rating of your gas appliance in British Thermal Units per hour. This is usually found on a label on the unit itself.</span>
+                        </div>
+                    </label>
+                    <input type="number" class="btu-rating" name="btu-rating" placeholder="e.g., 40000" min="0" step="1000">
+                </div>
+                <div class="form-field">
+                    <label>Efficiency (%)
+                        <div class="tooltip-container">
+                            <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" class="tooltip-icon">
+                              <path fill-rule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7-4a1 1 0 11-2 0 1 1 0 012 0zM9 9a1 1 0 000 2v3a1 1 0 001 1h1a1 1 0 100-2v-3a1 1 0 00-1-1H9z" clip-rule="evenodd" />
+                            </svg>
+                            <span class="tooltip-text">The efficiency of your gas appliance (AFUE for furnaces, Thermal for others). This is the percentage of fuel converted to useful heat. Common values are 60-80% for older units.</span>
+                        </div>
+                    </label>
+                    <div class="input-with-unit unit-right">
+                        <input type="number" class="efficiency-rating" name="efficiency-rating" placeholder="e.g., 80" min="0" max="100" step="1">
+                        <span>%</span>
+                    </div>
+                </div>
+                <button class="remove-btn" aria-label="Remove Appliance">
+                    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" width="20" height="20">
+                        <path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zM8.28 7.22a.75.75 0 00-1.06 1.06L8.94 10l-1.72 1.72a.75.75 0 101.06 1.06L10 11.06l1.72 1.72a.75.75 0 101.06-1.06L11.06 10l1.72-1.72a.75.75 0 00-1.06-1.06L10 8.94 8.28 7.22z" clip-rule="evenodd" />
+                    </svg>
+                </button>
+            </div>
+            <div class="recommendation-details"></div>
+        </div>
+    </template>
+    <script type="module" src="index.tsx"></script>
+<script type="module" src="/index.tsx"></script>
+</body>
+</html>
