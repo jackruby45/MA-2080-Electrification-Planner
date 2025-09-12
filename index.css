@@ -666,31 +666,27 @@ footer {
 
 /* Print Styles */
 @media print {
-    /* Hide everything on the page by default */
-    body * {
-        visibility: hidden;
-    }
-
-    /* Then, make the report content container and everything inside it visible */
-    #full-report-content, #full-report-content * {
-        visibility: visible;
-    }
-
-    /* Position the report content to fill the printed page */
-    #full-report-content {
-        position: absolute;
-        left: 0;
-        top: 0;
-        width: 100%;
-        padding: 0;
-        margin: 0;
-    }
-
-    /* Now, apply the specific formatting for the printed report */
     body {
         background-color: #fff;
         color: #000;
         font-size: 10pt;
+    }
+
+    /* Robustly hide all elements except the report content */
+    body > *:not(main),
+    main > *:not(#report-content-wrapper),
+    #report-content-wrapper .report-actions {
+        display: none;
+    }
+
+    main, #report-content-wrapper, #full-report-content {
+        display: block !important;
+    }
+
+    main {
+        padding: 0;
+        margin: 0;
+        width: 100%;
     }
 
     .card, .full-report-card {
@@ -704,6 +700,9 @@ footer {
     .full-report-section {
         margin-bottom: 1.5rem;
         page-break-inside: avoid;
+    }
+    .full-report-section:last-child {
+        margin-bottom: 0;
     }
 
     .full-report-title {
@@ -721,8 +720,6 @@ footer {
     }
 
     .full-report-table {
-        width: 100%;
-        border-collapse: collapse;
         font-size: 8.5pt;
     }
     

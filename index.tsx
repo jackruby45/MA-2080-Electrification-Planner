@@ -162,7 +162,7 @@ const FACILITY_APPLIANCE_MAP: Record<FacilityType, string[]> = {
 
 const BTU_PER_THERM = 100000;
 const BTU_TO_KW = 0.000293071;
-const PANEL_SIZES = [100, 125, 150, 200, 400];
+const PANEL_SIZES = [100, 125, 150, 200, 400, 600];
 const LIFETIME_YEARS = 15;
 const COP_LOOKUP: Record<ApplianceCategory, Record<EfficiencyTier, number>> = {
     'Furnace':      { 'Standard': 2.5, 'High': 3.0, 'Premium': 3.5 },
@@ -218,12 +218,12 @@ const EQUIPMENT_COSTS: Record<ApplianceCategory, Record<EfficiencyTier, number[]
     'Space Heater': { 'Standard': [1500, 2500], 'High': [2500, 4000], 'Premium': [4000, 5500] },
 };
 const INSTALLATION_COSTS: Record<ApplianceCategory, number[]> = {
-    'Furnace': [3000, 6000],
-    'Boiler': [3000, 6000],
+    'Furnace': [5000, 10000],
+    'Boiler': [5000, 10000],
     'Water Heater': [1000, 2000],
     'Range': [300, 600],
     'Dryer': [300, 600],
-    'Space Heater': [1000, 2000],
+    'Space Heater': [3000, 6000],
 };
 const DISTRIBUTION_SYSTEM_COSTS = {
     'Ductwork Modification': [500, 2000], // For furnace -> central HP
@@ -238,12 +238,13 @@ const DECOMMISSIONING_COSTS: Record<ApplianceCategory, number[]> = {
     'Space Heater': [50, 100],
 };
 const ELECTRICAL_UPGRADE_COSTS = {
-    'New Circuit': [500, 1000],
+    'New Circuit': [1000, 1500],
     'Sub-panel': [1500, 2500],
     'Panel Upgrade to 125A': [2000, 3500],
     'Panel Upgrade to 150A': [2500, 4000],
     'Panel Upgrade to 200A': [3000, 5000],
     'Panel Upgrade to 400A': [5000, 8000],
+    'Panel Upgrade to 600A': [15000, 25000],
 };
 // Source: Mass Save, for estimation only.
 const REBATES: Record<string, number> = {
@@ -328,8 +329,8 @@ let state: State = {
   efficiencyTier: 'High',
   appliances: [],
   gasPricePerTherm: 1.50,
-  electricityPricePerKwh: 0.28,
-  gasPriceEscalation: 2,
+  electricityPricePerKwh: 0.22,
+  gasPriceEscalation: 3,
   electricityPriceEscalation: 2,
   highRiskGasEscalation: 7,
 };
@@ -490,8 +491,10 @@ function calculateCostAnalysis(analysis: PlanningAnalysis, includedAppliances: A
     if (analysis.panelStatus.startsWith('Upgrade')) {
         const size = analysis.panelStatus.match(/\d+/)?.[0];
         const key = `Panel Upgrade to ${size}A` as keyof typeof ELECTRICAL_UPGRADE_COSTS;
-        const [low, high] = ELECTRICAL_UPGRADE_COSTS[key];
-        electricalCosts.push({ name: 'Main Panel Upgrade', low, high });
+        if (ELECTRICAL_UPGRADE_COSTS[key]) {
+            const [low, high] = ELECTRICAL_UPGRADE_COSTS[key];
+            electricalCosts.push({ name: 'Main Panel Upgrade', low, high });
+        }
     } else if (analysis.breakerStatus === 'Sub-panel Recommended') {
         const [low, high] = ELECTRICAL_UPGRADE_COSTS['Sub-panel'];
         electricalCosts.push({ name: 'Sub-panel Installation', low, high });
@@ -926,7 +929,7 @@ function renderFullReport(planningAnalysis: PlanningAnalysis, costAnalysis: Cost
     `;
 
     if (hasFurnace) {
-        planHtml += `<p class="report-note"><strong>Note on Furnaces:</strong> The cost estimate assumes that the existing ductwork is in good condition and can be reused by the new central heat pump with only minor modifications.</p>`;
+        planHtml += `<p class="report-note"><strong>Note on Furnaces:</strong> Ductwork condition and sizing must be field-verified. If replacement or major modifications are required, add contingency cost of $30,000–$50,000.</p>`;
     }
     if (hasBoiler) {
         planHtml += `<p class="report-note"><strong>Note on Boilers:</strong> Replacing a boiler (which uses hot water/steam pipes) with a standard heat pump (which produces hot air) requires a new heat distribution system. The cost estimate includes the installation of a ductless mini-split system, a common solution. Other options like air-to-water heat pumps may be possible and require consultation with an HVAC professional.</p>`;
@@ -1194,6 +1197,18 @@ function renderFullReport(planningAnalysis: PlanningAnalysis, costAnalysis: Cost
         <div class="full-report-section">
             <h3 class="full-report-section-title">8. Environmental Impact Analysis</h3>
             ${environmentalHtml}
+        </div>
+        <div class="full-report-section">
+            <h3 class="full-report-section-title">9. Summary of Revisions</h3>
+            <p>This report has been updated based on a review of initial assumptions. The following corrections have been applied:</p>
+            <ul class="explanation-list">
+                <li><strong>Electricity Price:</strong> Corrected to a realistic average commercial rate of ${formatCurrency(state.electricityPricePerKwh, false)}/kWh for Massachusetts.</li>
+                <li><strong>Fuel Escalation Rates:</strong> Annual price increase projections were updated to ${state.gasPriceEscalation}% for natural gas and ${state.electricityPriceEscalation}% for electricity to better reflect market conditions.</li>
+                <li><strong>Panel Upgrade:</strong> The electrical analysis now recommends an upgrade to a 600A service to meet the projected load, with associated commercial-scale costs.</li>
+                <li><strong>Cost Estimates:</strong> Installation and electrical costs have been revised to align with current Massachusetts commercial project pricing, including increased costs for heat pump installation and new circuits.</li>
+                <li><strong>Ductwork Contingency:</strong> A note has been added to the Electrification Plan highlighting the need to field-verify ductwork and to budget for a potential contingency for major modifications or replacement.</li>
+                <li><strong>Environmental Recalculations:</strong> All environmental impact figures have been recalculated based on the corrected energy usage and cost inputs.</li>
+            </ul>
         </div>
     `;
 
