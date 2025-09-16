@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Natural Gas to Electrification Tool</title>
+    <title>MA 2080 Electrification Planner</title>
     <link rel="stylesheet" href="index.css">
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -14,11 +14,12 @@
 </head>
 <body>
     <header>
-        <h1>Natural Gas to Electrification Tool</h1>
+        <h1>MA 2080 Electrification Planner</h1>
+        <p>Estimate the electrical and financial impact of switching from natural gas to electric appliances.</p>
     </header>
     <main>
         <div class="tabs">
-            <button id="tab-planner" class="tab-button active" role="tab" aria-selected="true" aria-controls="planner-content">Inputs</button>
+            <button id="tab-planner" class="tab-button active" role="tab" aria-selected="true" aria-controls="planner-content">Planner</button>
             <button id="tab-report" class="tab-button" role="tab" aria-selected="false" aria-controls="report-content-wrapper">Report</button>
             <button id="tab-methodology" class="tab-button" role="tab" aria-selected="false" aria-controls="methodology-content">Methodology</button>
             <button id="tab-save-load" class="tab-button" role="tab" aria-selected="false" aria-controls="save-load-content">Save/Load</button>
@@ -46,7 +47,7 @@
                                 <option value="Industrial">Industrial</option>
                                 <option value="Restaurant">Restaurant</option>
                                 <option value="Medical">Medical Facility</option>
-                                <option value="Nursing Home" selected>Nursing Home</option>
+                                <option value="Nursing Home">Nursing Home</option>
                             </select>
                         </div>
                         <div class="form-field">
@@ -78,44 +79,6 @@
                     </div>
                 </div>
                  <div class="card">
-                    <h3 class="card-title">Reporting Preferences</h3>
-                    <div class="form-grid">
-                        <div class="form-field">
-                            <label for="ghg-unit">GHG Reduction Unit
-                                <div class="tooltip-container">
-                                    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" class="tooltip-icon">
-                                      <path fill-rule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7-4a1 1 0 11-2 0 1 1 0 012 0zM9 9a1 1 0 000 2v3a1 1 0 001 1h1a1 1 0 100-2v-3a1 1 0 00-1-1H9z" clip-rule="evenodd" />
-                                    </svg>
-                                    <span class="tooltip-text">Select the unit for displaying greenhouse gas reduction amounts.</span>
-                                </div>
-                            </label>
-                            <select id="ghg-unit" name="ghg-unit">
-                                <optgroup label="Mass Units (Metric)">
-                                    <option value="kg" selected>Kilograms (kg)</option>
-                                    <option value="t">Metric Tons (t)</option>
-                                </optgroup>
-                                <optgroup label="Mass Units (US)">
-                                    <option value="lb">Pounds (lb)</option>
-                                    <option value="short-ton">US Tons</option>
-                                </optgroup>
-                                <optgroup label="Common Equivalencies">
-                                    <option value="homes-electricity">Homes' electricity use per year</option>
-                                    <option value="natural-gas-homes">Homes' natural gas use per year</option>
-                                    <option value="oil-barrels">Barrels of oil consumed</option>
-                                    <option value="trash-bags">Trash bags of waste recycled</option>
-                                </optgroup>
-                                <optgroup label="Energy Equivalencies (EPA Data)">
-                                    <option value="gasoline-gallons">Gallons of gasoline consumed</option>
-                                    <option value="coal-pounds-burned">Pounds of coal burned</option>
-                                    <option value="propane-cylinders">Propane cylinders for BBQ</option>
-                                    <option value="smartphones-charged">Smartphones charged</option>
-                                    <option value="forest-acres-sequestered">Acres of U.S. forest (1yr C sequestration)</option>
-                                </optgroup>
-                            </select>
-                        </div>
-                    </div>
-                </div>
-                 <div class="card">
                     <h3 class="card-title">Annual Gas Usage</h3>
                     <div class="form-grid">
                         <div class="form-field">
@@ -127,7 +90,7 @@
                                     <span class="tooltip-text">Enter your total annual gas usage for heating, in therms. You can find this on your gas utility bills, often as a yearly summary.</span>
                                 </div>
                             </label>
-                            <input type="number" id="annual-heating-therms" name="annual-heating-therms" value="8000" min="0" step="10">
+                            <input type="number" id="annual-heating-therms" name="annual-heating-therms" value="700" min="0" step="10">
                         </div>
                          <div class="form-field">
                             <label for="annual-non-heating-therms">Non-Heating Usage (therms)
@@ -138,7 +101,7 @@
                                     <span class="tooltip-text">Enter your total annual gas usage for non-heating appliances like water heaters, ranges, and dryers. This is your 'base' usage, often found on utility bills.</span>
                                 </div>
                             </label>
-                            <input type="number" id="annual-non-heating-therms" name="annual-non-heating-therms" value="6000" min="0" step="10">
+                            <input type="number" id="annual-non-heating-therms" name="annual-non-heating-therms" value="250" min="0" step="10">
                         </div>
                     </div>
                 </div>
@@ -158,9 +121,8 @@
                                 <option value="100">100 A</option>
                                 <option value="125">125 A</option>
                                 <option value="150">150 A</option>
-                                <option value="200">200 A</option>
+                                <option value="200" selected>200 A</option>
                                 <option value="400">400 A</option>
-                                <option value="600" selected>600 A</option>
                             </select>
                         </div>
                         <div class="form-field">
@@ -230,7 +192,7 @@
                             </label>
                             <div class="input-with-unit unit-left">
                                  <span>$</span>
-                                <input type="number" id="electricity-price" name="electricity-price" value="0.22" step="0.01" min="0">
+                                <input type="number" id="electricity-price" name="electricity-price" value="0.28" step="0.01" min="0">
                             </div>
                         </div>
                          <div class="form-field">
@@ -243,7 +205,7 @@
                                 </div>
                             </label>
                             <div class="input-with-unit unit-right">
-                                <input type="number" id="gas-price-escalation" name="gas-price-escalation" value="3" step="0.1" min="0">
+                                <input type="number" id="gas-price-escalation" name="gas-price-escalation" value="2" step="0.1" min="0">
                                 <span>%</span>
                             </div>
                         </div>
@@ -372,13 +334,99 @@
                 </div>
             </div>
         </div>
-
+        
         <div id="methodology-content" class="tab-content" role="tabpanel" aria-labelledby="tab-methodology">
-            <!-- Methodology content will be inserted here by the script -->
+            <h3>How This Tool Works</h3>
+            <p>This tool is designed to provide a comprehensive, data-driven estimate of the impacts of electrifying gas appliances. It models the changes in electrical load, project costs, operational savings, and environmental footprint. Below is a detailed breakdown of how each part of the analysis is calculated.</p>
+
+            <h3>Section 1: The Planner - How Your Inputs Are Used</h3>
+            <h4>Facility Information & Gas Usage</h4>
+            <p>Your inputs are the foundation of the entire analysis. The tool uses them in the following ways:</p>
+            <ul>
+                <li><strong>Facility Type:</strong> This sets a reasonable baseline for your annual gas usage (Heating vs. Non-Heating), which you can then fine-tune. It also determines which types of appliances are available to add.</li>
+                <li><strong>Annual Gas Usage (therms):</strong> This is the most critical input for energy calculations. The tool uses your specified therms for heating and non-heating to determine how much energy is needed to perform the same job with electric appliances.</li>
+                <li><strong>Appliance BTU & Efficiency:</strong> The "useful heat" delivered by a gas appliance is less than the total energy it consumes due to inefficiency (heat lost in exhaust). The tool calculates this useful heat to accurately size the electric replacement.</li>
+            </ul>
+            <div class="formula-box">Useful Heat (BTU) = Gas Usage (therms) × 100,000 BTU/therm × Gas Efficiency (%)</div>
+
+            <h4>Electrical Service & Utility Costs</h4>
+            <ul>
+                <li><strong>Panel Amperage & Voltage:</strong> These values determine your electrical panel's maximum capacity. The tool compares the new electrical load against this capacity to see if an upgrade is needed.</li>
+                <li><strong>Available Breaker Spaces:</strong> Each new 240V electric appliance (like a heat pump or induction range) requires a 2-pole breaker, which takes up two spaces in your panel. The tool checks if you have enough empty spaces.</li>
+                <li><strong>Utility Prices & Escalation Rates:</strong> Your current gas and electric prices are used to calculate today's operating costs. The escalation rates project these costs into the future, which is essential for calculating lifetime savings. The <strong>High-Risk Gas Escalation</strong> rate models a scenario where fewer customers on the gas system lead to higher delivery costs for those who remain, a real possibility discussed in state regulatory dockets.</li>
+            </ul>
+
+            <h3>Section 2: The Report - Understanding the Analysis</h3>
+            <h4>Electrical Load Analysis</h4>
+            <p>This section determines if your current electrical system can handle the new appliances.</p>
+            <ul>
+                <li><strong>Peak kW & Amps:</strong> The tool first calculates the maximum power (in kilowatts) each new electric appliance could draw. This is then converted to Amperes (Amps) using the formula <code>Amps = (kW × 1000) / Volts</code>.</li>
+                <li><strong>Sum of Peak Loads:</strong> This is a simple, worst-case sum of the peak amps of all new appliances. It's an unlikely scenario but useful for initial assessment.</li>
+                <li><strong>Estimated Diversified Peak Load:</strong> This is a more realistic estimate. It's highly improbable that you'll run your heat pump, water heater, range, and dryer all at maximum power at the exact same time. The tool applies a standard "diversity factor" (100% of the largest load + a fraction of the others) to calculate a more practical peak load. <strong>This diversified value is used for the final panel upgrade recommendation.</strong></li>
+                <li><strong>Panel & Breaker Status:</strong> The tool compares the new diversified load plus an assumed existing load against 80% of your panel's total capacity (a safety margin required by electrical code). It also checks if you have enough breaker spaces. Based on this, it recommends if your panel is sufficient, if a smaller sub-panel is needed, or if a full main panel upgrade is required.</li>
+            </ul>
+
+            <h4>Annual Operating Cost Analysis</h4>
+            <p>This is where the tool calculates your potential savings. The core of this calculation is ensuring an "apples-to-apples" comparison of the energy needed.</p>
+            <ol>
+                <li><strong>Calculate Useful Heat:</strong> First, the tool uses the formula above to find the actual amount of useful heat your gas appliances deliver each year.</li>
+                <li><strong>Determine Required Electric Energy:</strong> Next, it calculates how many kilowatt-hours (kWh) an electric appliance would need to produce that same amount of useful heat. This depends on the appliance's efficiency, measured by its <strong>Coefficient of Performance (COP)</strong>.</li>
+            </ol>
+            <div class="formula-box">Electric Energy (kWh) = [Useful Heat (BTU) × 0.000293 kWh/BTU] / COP</div>
+            <p>A heat pump with a COP of 3.0, for example, delivers 3 units of heat for every 1 unit of electricity consumed. The tool adjusts the COP based on your selected <strong>Efficiency Tier</strong> and <strong>Climate Zone</strong> (colder zones slightly reduce heat pump efficiency).</p>
+            <ul>
+                <li><strong>Final Calculation:</strong> The tool compares the total annual cost (energy + maintenance) of the old gas system to the total annual cost of the new electric system to find your <strong>Net Annual Savings</strong>.</li>
+            </ul>
+            
+            <h4>Understanding the Graphs</h4>
+            <dl>
+                <dt>15-Year Financial Outlook (Total Cost of Ownership)</dt>
+                <dd>This graph shows the <strong>cumulative cost</strong> over 15 years. The electric system line starts high because it includes the upfront installation cost. The gas system line starts at zero (assuming you already own it). The point where the lines cross is the "payback" or "break-even" point, where your total investment in the electric system has been paid for by accumulated savings.</dd>
+                <dt>15-Year Energy Cost Comparison</dt>
+                <dd>This graph is different: it shows <strong>only the cumulative cost of energy</strong> (gas vs. electricity), with both lines starting at zero. It ignores installation and maintenance costs. Its purpose is to give you a clear, uncluttered view of how the fuel costs themselves compare and diverge over time due to the price escalation rates you entered.</dd>
+                <dt>Project Cost Breakdown</dt>
+                <dd>This donut chart shows the major components of the total estimated gross project cost (before rebates), helping you see where the biggest expenses are (e.g., equipment, installation, electrical work).</dd>
+                <dt>Annual Operating Cost Projection</dt>
+                <dd>This bar chart compares the projected operating cost (energy + maintenance) for each individual year. Unlike the cumulative charts, this one makes it easy to see how your annual savings grow year after year as gas prices are projected to rise.</dd>
+            </dl>
+            
+            <h4>Environmental Impact Analysis</h4>
+            <p>This analysis goes beyond just CO₂ from burning gas; it also includes the significant climate impact of methane leakage.</p>
+            <ul>
+                <li><strong>Gas Emissions:</strong> The tool calculates CO₂ from combustion (a fixed 5.3 kg per therm). Crucially, it also adds the warming impact from unburned methane (CH₄) that leaks from the gas supply chain ("upstream") and from the appliance itself ("on-site slippage").</li>
+                <li><strong>Global Warming Potential (GWP):</strong> Methane is a much more potent greenhouse gas than CO₂ in the short term. GWP is a metric used to compare its impact.
+                    <ul>
+                        <li><strong>GWP₂₀ (20-Year Horizon):</strong> Over 20 years, one kilogram of methane traps about <strong>84 times</strong> more heat than a kilogram of CO₂. This metric is vital for understanding near-term climate impact.</li>
+                        <li><strong>GWP₁₀₀ (100-Year Horizon):</strong> Over 100 years, that same kilogram of methane traps about <strong>28 times</strong> more heat. This is the standard metric used in many national inventories.</li>
+                    </ul>
+                    The tool calculates your emissions using both horizons to provide a complete picture.
+                </li>
+                <li><strong>Electric Emissions:</strong> The tool calculates the emissions from generating the new electricity you'll use, based on the average emissions rate of the ISO New England grid (approx. 0.26 kg CO₂e per kWh).</li>
+                <li><strong>Net Reduction:</strong> The final result is the total reduction in greenhouse gas emissions, showing the powerful climate benefits of switching off fossil fuels.</li>
+            </ul>
         </div>
 
         <div id="save-load-content" class="tab-content" role="tabpanel" aria-labelledby="tab-save-load">
-            <!-- Save/Load content will be inserted here by the script -->
+            <div class="card">
+                <h3 class="card-title">Save Project</h3>
+                <p>Save all current inputs and appliance configurations to a JSON file on your computer. You can load this file later to continue your work.</p>
+                <button id="save-project-btn" class="button-primary">
+                    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" width="20" height="20"><path d="M10.75 2.75a.75.75 0 00-1.5 0v8.614L6.295 8.235a.75.75 0 10-1.09 1.03l4.25 4.5a.75.75 0 001.09 0l4.25-4.5a.75.75 0 00-1.09-1.03l-2.955 3.129V2.75z" /><path d="M3.5 12.75a.75.75 0 00-1.5 0v2.5A2.75 2.75 0 004.75 18h10.5A2.75 2.75 0 0018 15.25v-2.5a.75.75 0 00-1.5 0v2.5c0 .69-.56 1.25-1.25 1.25H4.75c-.69 0-1.25-.56-1.25-1.25v-2.5z" /></svg>
+                    <span>Save Project File</span>
+                </button>
+            </div>
+            <div class="card">
+                <h3 class="card-title">Load Project</h3>
+                <p>Load a project from a previously saved JSON file. This will overwrite all current settings.</p>
+                <div class="form-field">
+                    <label for="load-project-input" class="button-secondary file-input-label">
+                        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" width="20" height="20"><path d="M9.25 1.75a.75.75 0 01.75.75v8.614l2.955-3.129a.75.75 0 011.09 1.03l-4.25 4.5a.75.75 0 01-1.09 0l-4.25-4.5a.75.75 0 011.09-1.03L9.25 11.114V2.5a.75.75 0 01.75-.75z" /><path d="M3.5 12.75a.75.75 0 00-1.5 0v2.5A2.75 2.75 0 004.75 18h10.5A2.75 2.75 0 0018 15.25v-2.5a.75.75 0 00-1.5 0v2.5c0 .69-.56 1.25-1.25 1.25H4.75c-.69 0-1.25-.56-1.25-1.25v-2.5z" /></svg>
+                        <span>Choose Project File...</span>
+                    </label>
+                    <input type="file" id="load-project-input" accept=".json" class="sr-only">
+                    <span id="loaded-filename" class="loaded-filename">No file selected.</span>
+                </div>
+            </div>
         </div>
     </main>
 
@@ -435,6 +483,30 @@
                     <div class="input-with-unit unit-right">
                         <input type="number" class="efficiency-rating" name="efficiency-rating" placeholder="e.g., 80" min="0" max="100" step="1">
                         <span>%</span>
+                    </div>
+                </div>
+                <div class="heat-distribution-fields hidden">
+                    <div class="form-field zones-field">
+                        <label>Indoor Zones
+                            <div class="tooltip-container">
+                                <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" class="tooltip-icon">
+                                  <path fill-rule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7-4a1 1 0 11-2 0 1 1 0 012 0zM9 9a1 1 0 000 2v3a1 1 0 001 1h1a1 1 0 100-2v-3a1 1 0 00-1-1H9z" clip-rule="evenodd" />
+                                </svg>
+                                <span class="tooltip-text">For boiler replacements, enter the number of indoor ductless "heads" or zones you plan to install. A typical home might use 3-5 to cover main living areas and bedrooms.</span>
+                            </div>
+                        </label>
+                        <input type="number" class="zones-rating" name="zones-rating" value="3" min="1" step="1">
+                    </div>
+                    <div class="form-field supplemental-heaters-field">
+                        <label>Supplemental Heaters
+                            <div class="tooltip-container">
+                                <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" class="tooltip-icon">
+                                  <path fill-rule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7-4a1 1 0 11-2 0 1 1 0 012 0zM9 9a1 1 0 000 2v3a1 1 0 001 1h1a1 1 0 100-2v-3a1 1 0 00-1-1H9z" clip-rule="evenodd" />
+                                </svg>
+                                <span class="tooltip-text">For rooms without a dedicated indoor unit (e.g., bathrooms, hallways, offices). Enter the number of small electric heaters needed to ensure whole-home comfort.</span>
+                            </div>
+                        </label>
+                        <input type="number" class="supplemental-heaters-rating" name="supplemental-heaters-rating" value="2" min="0" step="1">
                     </div>
                 </div>
                 <button class="remove-btn" aria-label="Remove Appliance">
