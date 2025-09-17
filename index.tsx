@@ -697,7 +697,7 @@ function calculateCostAnalysis(analysis: PlanningAnalysis, includedAppliances: A
         if (category === 'Furnace') {
             const [low, medium, high] = defaultInputs.DISTRIBUTION_SYSTEM_COSTS['Ductwork Modification'];
             costs.push({ name: 'Ductwork Modification', low, medium, high });
-        } else if (category === 'Boiler') {
+        } else if (category === 'Boiler' || category === 'Space Heater') {
             const zones = Math.max(1, appliance.zones || 1); // Ensure at least 1 zone
             const [baseLow, baseMed, baseHigh] = defaultInputs.DUCTLESS_MINI_SPLIT_COSTS.base;
             const [perZoneLow, perZoneMed, perZoneHigh] = defaultInputs.DUCTLESS_MINI_SPLIT_COSTS.perAdditionalZone;
@@ -743,10 +743,13 @@ function calculateCostAnalysis(analysis: PlanningAnalysis, includedAppliances: A
         electricalCosts.push({ name: `${numApplianceCircuits} New Appliance Circuit(s)`, low: low * numApplianceCircuits, medium: medium * numApplianceCircuits, high: high * numApplianceCircuits });
     }
     
-    // Add supplemental heaters if a boiler is being replaced
-    const boilerAppliances = includedAppliances.filter(app => APPLIANCE_DEFINITIONS[app.key].category === 'Boiler');
-    const numHeaters = boilerAppliances.reduce((sum, app) => sum + (app.supplementalHeaters || 0), 0);
-    
+    // Add supplemental heaters for ductless conversions (boilers, space heaters)
+    const appliancesWithHeaters = includedAppliances.filter(app => {
+        const category = APPLIANCE_DEFINITIONS[app.key].category;
+        return (category === 'Boiler' || category === 'Space Heater');
+    });
+    const numHeaters = appliancesWithHeaters.reduce((sum, app) => sum + (app.supplementalHeaters || 0), 0);
+
     if (numHeaters > 0) {
         const [low, medium, high] = defaultInputs.ELECTRICAL_UPGRADE_COSTS['Supplemental Heater'];
         electricalCosts.push({
@@ -1683,8 +1686,12 @@ function renderFullReport(planningAnalysis: PlanningAnalysis, costAnalysis: Cost
         return appliance ? APPLIANCE_DEFINITIONS[appliance.key].category : '';
     }));
     const hasHeating = replacedCategories.has('Furnace') || replacedCategories.has('Boiler') || replacedCategories.has('Space Heater');
-    const hasBoiler = replacedCategories.has('Boiler');
-    const boilerAppliances = includedAppliances.filter(a => APPLIANCE_DEFINITIONS[a.key].category === 'Boiler');
+    
+    const ductlessAppliances = includedAppliances.filter(a => {
+        const category = APPLIANCE_DEFINITIONS[a.key].category;
+        return category === 'Boiler' || category === 'Space Heater';
+    });
+    const needsDuctlessNote = ductlessAppliances.some(a => (a.supplementalHeaters || 0) > 0);
 
 
     let planHtml = `
@@ -1711,16 +1718,16 @@ function renderFullReport(planningAnalysis: PlanningAnalysis, costAnalysis: Cost
             </div>`;
     }
 
-    if (hasBoiler) {
-        const totalZones = boilerAppliances.reduce((sum, app) => sum + (app.zones || 0), 0);
-        const totalHeaters = boilerAppliances.reduce((sum, app) => sum + (app.supplementalHeaters || 0), 0);
+    if (needsDuctlessNote) {
+        const totalZones = ductlessAppliances.reduce((sum, app) => sum + (app.zones || 0), 0);
+        const totalHeaters = ductlessAppliances.reduce((sum, app) => sum + (app.supplementalHeaters || 0), 0);
         planHtml += `
             <div class="report-note">
-                <strong>Critical Consideration for Boiler Replacements: Bathroom & Small Room Heating</strong>
+                <strong>Critical Consideration for Ductless Systems: Bathroom & Small Room Heating</strong>
                 <br><br>
-                Replacing a boiler system (radiators/baseboard) requires a new way to distribute heat. This plan includes a <strong>${totalZones}-zone ductless mini-split system</strong> to heat the primary living areas and bedrooms.
+                When replacing a primary heat source with a ductless mini-split system, a new method of heat distribution is required. This plan includes a <strong>${totalZones}-zone ductless system</strong> to heat the primary living areas and bedrooms.
                 <br><br>
-                However, bathrooms and other small rooms often do not receive a dedicated indoor unit and lose heat quickly due to tile surfaces and ventilation. The single radiator that previously heated them will be removed, and indirect airflow from a hallway unit is often insufficient to maintain comfort.
+                However, bathrooms and other small rooms often do not receive a dedicated indoor unit and lose heat quickly due to tile surfaces and ventilation. The original heat source (e.g., a radiator or wall furnace) will be removed, and indirect airflow from a hallway unit is often insufficient to maintain comfort.
                 <br><br>
                 The standard professional solution is to install small, dedicated electric heaters in these spaces. Therefore, this estimate explicitly includes the cost for installing <strong>${totalHeaters} supplemental electric heaters</strong> (e.g., electric baseboards or wall units) to ensure these rooms remain warm.
             </div>`;
@@ -2231,7 +2238,7 @@ function renderAppliances() {
     btuInput.value = appliance.btu > 0 ? appliance.btu.toString() : '';
     efficiencyInput.value = appliance.efficiency > 0 ? appliance.efficiency.toString() : '';
 
-    if (definition.category === 'Boiler') {
+    if (definition.category === 'Boiler' || definition.category === 'Space Heater') {
         heatDistributionFields.classList.remove('hidden');
         zonesInput.value = (appliance.zones || 3).toString();
         supplementalHeatersInput.value = (appliance.supplementalHeaters ?? 2).toString();
@@ -2526,9 +2533,9 @@ function addApplianceByKey(key: string) {
         efficiency: definition.defaultEfficiency,
     };
 
-    if (definition.category === 'Boiler') {
-        newAppliance.zones = 3; // Default to 3 zones for a new boiler
-        newAppliance.supplementalHeaters = 2; // Default to 2 heaters
+    if (definition.category === 'Boiler' || definition.category === 'Space Heater') {
+        newAppliance.zones = 3; // Default zones for a new ductless system
+        newAppliance.supplementalHeaters = 2; // Default heaters for small rooms
     }
 
     state.appliances.push(newAppliance);
