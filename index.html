@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>MA 2080 Electrification Planner</title>
+    <title>Natural Gas to Electrification Tool</title>
     <link rel="stylesheet" href="index.css">
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -14,8 +14,8 @@
 </head>
 <body>
     <header>
-        <h1>MA 2080 Electrification Planner</h1>
-        <p>Estimate the electrical and financial impact of switching from natural gas to electric appliances.</p>
+        <h1>Natural Gas to Electrification Tool</h1>
+        <p>Estimate the electrical and financial impact of switching from natural gas to electric appliances in Massachusetts.</p>
     </header>
     <main>
         <div class="tabs">
@@ -48,35 +48,6 @@
                                 <option value="Restaurant">Restaurant</option>
                                 <option value="Medical">Medical Facility</option>
                                 <option value="Nursing Home">Nursing Home</option>
-                            </select>
-                        </div>
-                        <div class="form-field">
-                            <label for="region">State/Region
-                                <div class="tooltip-container">
-                                    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" class="tooltip-icon">
-                                      <path fill-rule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7-4a1 1 0 11-2 0 1 1 0 012 0zM9 9a1 1 0 000 2v3a1 1 0 001 1h1a1 1 0 100-2v-3a1 1 0 00-1-1H9z" clip-rule="evenodd" />
-                                    </svg>
-                                    <span class="tooltip-text">Select your state to load typical utility rates, grid emissions data, and available rebates.</span>
-                                </div>
-                            </label>
-                            <select id="region" name="region">
-                                <option value="MA" selected>Massachusetts</option>
-                                <option value="NY">New York</option>
-                                <option value="US_AVG">US Average</option>
-                            </select>
-                        </div>
-                        <div class="form-field">
-                            <label for="climate-zone">Climate Zone
-                                <div class="tooltip-container">
-                                    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" class="tooltip-icon">
-                                      <path fill-rule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7-4a1 1 0 11-2 0 1 1 0 012 0zM9 9a1 1 0 000 2v3a1 1 0 001 1h1a1 1 0 100-2v-3a1 1 0 00-1-1H9z" clip-rule="evenodd" />
-                                    </svg>
-                                    <span class="tooltip-text">Select your climate zone. Colder zones slightly reduce the seasonal efficiency of heat pumps, affecting energy use and savings calculations.</span>
-                                </div>
-                            </label>
-                            <select id="climate-zone" name="climate-zone">
-                                <option value="Zone5" selected>Zone 5 (Most of MA)</option>
-                                <option value="Zone6">Zone 6 (Berkshires)</option>
                             </select>
                         </div>
                         <div class="form-field">
@@ -317,6 +288,36 @@
                                 <span>%</span>
                             </div>
                         </div>
+                        <div class="form-field">
+                            <label for="grid-decarbonization-rate">Grid De-CO₂ Rate
+                               <div class="tooltip-container">
+                                    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" class="tooltip-icon">
+                                      <path fill-rule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7-4a1 1 0 11-2 0 1 1 0 012 0zM9 9a1 1 H9z" clip-rule="evenodd" />
+                                    </svg>
+                                    <span class="tooltip-text">Projected annual reduction in grid emissions factor (%/yr) as more renewables come online. This shows how your project's emissions will decrease over time.</span>
+                                </div>
+                            </label>
+                            <div class="input-with-unit unit-right">
+                                <input type="number" id="grid-decarbonization-rate" name="grid-decarbonization-rate" value="2" step="0.1" min="0">
+                                <span>%</span>
+                            </div>
+                        </div>
+                        <div class="form-field full-width-field">
+                             <label for="environmental-unit">Environmental Impact Units
+                                <div class="tooltip-container">
+                                    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" class="tooltip-icon">
+                                      <path fill-rule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7-4a1 1 0 11-2 0 1 1 0 012 0zM9 9a1 1 0 000 2v3a1 1 0 001 1h1a1 1 0 100-2v-3a1 1 0 00-1-1H9z" clip-rule="evenodd" />
+                                    </svg>
+                                    <span class="tooltip-text">Choose how to display the greenhouse gas reduction results in the report summary.</span>
+                                </div>
+                            </label>
+                            <select id="environmental-unit" name="environmental-unit">
+                                <option value="kg">Kilograms (kg CO₂e)</option>
+                                <option value="tons">Metric Tons (t CO₂e)</option>
+                                <option value="cars">Cars off road (equivalent)</option>
+                                <option value="gasoline">Gallons of gasoline (equivalent)</option>
+                            </select>
+                        </div>
                      </div>
                 </div>
                 <div class="card">
@@ -416,79 +417,84 @@
         </div>
         
         <div id="methodology-content" class="tab-content" role="tabpanel" aria-labelledby="tab-methodology">
-            <h3>How This Tool Works</h3>
-            <p>This tool is designed to provide a comprehensive, data-driven estimate of the impacts of electrifying gas appliances. It models the changes in electrical load, project costs, operational savings, and environmental footprint. Below is a detailed breakdown of how each part of the analysis is calculated.</p>
+            <h3>Introduction: The 'Why' Behind This Tool</h3>
+            <p>This tool is designed to provide a comprehensive, data-driven estimate of the impacts of strategic electrification—the process of replacing appliances that run on fossil fuels (like natural gas) with high-efficiency electric alternatives. In Massachusetts, this transition is a cornerstone of the state's plan to achieve its ambitious climate goals, as outlined in regulatory proceedings like the Department of Public Utilities (DPU) Docket 20-80, "The Future of Gas."</p>
+            <p>Our goal is to demystify this process by modeling the key factors you need to consider: the impact on your electrical system, the upfront and long-term costs, operational savings, and the full environmental footprint. This methodology explains exactly how we get from your inputs to the final report.</p>
 
-            <h3>Section 1: The Planner - How Your Inputs Are Used</h3>
-            <h4>Facility Information & Gas Usage</h4>
-            <p>Your inputs are the foundation of the entire analysis. The tool uses them in the following ways:</p>
+            <h3>Core Concepts: Understanding the Numbers</h3>
+            <h4>Energy vs. Power</h4>
             <ul>
-                <li><strong>Facility Type:</strong> This sets a reasonable baseline for your annual gas usage (Heating vs. Non-Heating), which you can then fine-tune. It also determines which types of appliances are available to add.</li>
-                <li><strong>Annual Gas Usage (therms):</strong> This is the most critical input for energy calculations. The tool uses your specified therms for heating and non-heating to determine how much energy is needed to perform the same job with electric appliances.</li>
-                <li><strong>Appliance BTU & Efficiency:</strong> The "useful heat" delivered by a gas appliance is less than the total energy it consumes due to inefficiency (heat lost in exhaust). The tool calculates this useful heat to accurately size the electric replacement.</li>
+                <li><strong>Power (kW):</strong> Kilowatts measure the <em>rate</em> at which energy is used at any given moment. It's like the speed of your car. This is critical for the <strong>Electrical Load Analysis</strong> to ensure your electrical panel can supply enough power at peak times without being overloaded.</li>
+                <li><strong>Energy (kWh):</strong> Kilowatt-hours measure the <em>total amount</em> of energy consumed over time. It's like the total distance you've driven. This is used in the <strong>Operating Cost Analysis</strong> to calculate your annual utility bills.</li>
+            </ul>
+
+            <h4>Heating, Cooling & Efficiency Metrics</h4>
+            <ul>
+                <li><strong>BTU (British Thermal Unit):</strong> The standard unit of heat. A gas furnace might be rated in BTU/hour, indicating its maximum heat output rate.</li>
+                <li><strong>COP (Coefficient of Performance):</strong> A simple ratio of how much useful heat an electric heat pump moves compared to the electricity it consumes. A COP of 3.0 means it moves 3 units of heat for every 1 unit of electricity, making it 300% efficient. This tool uses COP because it allows for a direct, apples-to-apples conversion from the "useful heat" of your gas appliance to the electricity needed for its replacement.</li>
+                <li><strong>Cold Climate Performance:</strong> Modern cold-climate heat pumps work efficiently even in Massachusetts winters. However, performance does decrease as outside temperatures drop. To provide a conservative and realistic estimate, this tool applies a <strong>15% penalty</strong> to the rated COP for all heating calculations.</li>
+            </ul>
+            
+            <h4>Natural Gas Metrics</h4>
+            <ul>
+                <li><strong>Therm:</strong> The standard unit for billing natural gas, equivalent to 100,000 BTUs of energy content.</li>
+                <li><strong>Useful Heat vs. Input Energy:</strong> This is a critical concept. An 80,000 BTU furnace with 80% efficiency doesn't deliver 80,000 BTUs of heat to your home; it delivers only 64,000 BTUs. The other 20% is wasted as exhaust. The tool's first step is always to calculate this "useful heat" to determine how much work the new electric appliance actually needs to do.</li>
             </ul>
             <div class="formula-box">Useful Heat (BTU) = Gas Usage (therms) × 100,000 BTU/therm × Gas Efficiency (%)</div>
 
-            <h4>Electrical Service & Utility Costs</h4>
-            <ul>
-                <li><strong>Panel Amperage & Voltage:</strong> These values determine your electrical panel's maximum capacity. The tool compares the new electrical load against this capacity to see if an upgrade is needed.</li>
-                <li><strong>Available Breaker Spaces:</strong> Each new 240V electric appliance (like a heat pump or induction range) requires a 2-pole breaker, which takes up two spaces in your panel. The tool checks if you have enough empty spaces.</li>
-                <li><strong>Utility Prices & Escalation Rates:</strong> Your current gas and electric prices are used to calculate today's operating costs. The escalation rates project these costs into the future, which is essential for calculating lifetime savings. The <strong>High-Risk Gas Escalation</strong> rate models a scenario where fewer customers on the gas system lead to higher delivery costs for those who remain, a real possibility discussed in state regulatory dockets.</li>
-            </ul>
+            <h3>How the Analysis Works: A Step-by-Step Guide</h3>
+            <h4>Step 1: Baseline Energy Calculation</h4>
+            <p>The foundation of the entire analysis is understanding how much energy your current gas system uses. We take your annual gas usage in therms (for heating and non-heating) and multiply it by the efficiency of each gas appliance you list. This calculation gives us the total "useful BTUs" your home requires annually, which is the target our new electric system must meet.</p>
 
-            <h3>Section 2: The Report - Understanding the Analysis</h3>
-            <h4>Electrical Load Analysis</h4>
-            <p>This section determines if your current electrical system can handle the new appliances.</p>
+            <h4>Step 2: Electric Equivalent Energy</h4>
+            <p>Once we know the useful BTUs required, we can calculate how many kilowatt-hours (kWh) of electricity are needed for the electric replacements. This is done by converting the useful BTUs to kWh and then dividing by the COP of the new appliance.</p>
+            <div class="formula-box">Electric Energy (kWh) = [Useful Heat (BTU) × 0.000293 kWh/BTU] / (COP × Cold Climate Penalty)</div>
+            <p>The result is the projected annual kWh consumption for the new system, which forms the basis for the operating cost and environmental impact calculations.</p>
+
+            <h4>Step 3: Electrical Load Analysis</h4>
+            <p>This analysis determines if your current electrical system can handle the new appliances. It's not about annual energy use (kWh), but about the instantaneous power draw (kW and Amps).</p>
             <ul>
-                <li><strong>Peak kW & Amps:</strong> The tool first calculates the maximum power (in kilowatts) each new electric appliance could draw. This is then converted to Amperes (Amps) using the formula <code>Amps = (kW × 1000) / Volts</code>.</li>
-                <li><strong>Sum of Peak Loads:</strong> This is a simple, worst-case sum of the peak amps of all new appliances. It's an unlikely scenario but useful for initial assessment.</li>
-                <li><strong>Estimated Diversified Peak Load:</strong> This is a more realistic estimate of demand. It's highly improbable that all appliances will run at maximum power simultaneously. The tool applies a standard "diversity factor" based on the facility type to calculate a practical peak load. <strong>This diversified value is used for the final panel upgrade recommendation.</strong>
+                <li><strong>Peak Load Calculation:</strong> For each new appliance, we determine its maximum power draw in kW and convert it to Amps: <code>Amps = (kW × 1000) / Volts</code>.</li>
+                <li><strong>Sum of Peaks vs. Diversified Load:</strong> Simply adding up the peak Amps of all appliances gives a worst-case, unrealistic number. It's highly unlikely you'll run your heat pump at full blast while also using your induction range, heat pump dryer, and EV charger all at their maximum power simultaneously. Therefore, we apply a "diversity factor" based on National Electrical Code (NEC) principles to get a more realistic peak load.
                     <ul style="margin-top: 0.5rem;">
-                        <li><strong>Residential:</strong> The calculation is based on a simplified interpretation of National Electrical Code (NEC) principles for whole-house calculations. It takes 100% of the largest load (typically the heat pump) and adds 50% of the sum of all other new loads. This reflects that while the primary heating/cooling system may run at full power, other appliances like water heaters, ranges, and dryers cycle on and off and are used intermittently.</li>
-                        <li><strong>Commercial:</strong> The calculation uses a common industry standard for general lighting and receptacle loads. It takes 100% of the first 80 Amps of the new load and adds 75% of the remaining load. This method provides a conservative estimate for facilities where multiple pieces of equipment may be in use at once.</li>
+                        <li><strong>Residential:</strong> Takes 100% of the largest load (typically the heat pump) + 50% of all other new loads.</li>
+                        <li><strong>Commercial:</strong> Takes 100% of the first 80 Amps of new load + 75% of the remaining load.</li>
                     </ul>
                 </li>
-                <li><strong>Panel & Breaker Status:</strong> The tool compares the new diversified load plus an assumed existing load against 80% of your panel's total capacity (a safety margin required by electrical code). It also checks if you have enough breaker spaces. Based on this, it recommends if your panel is sufficient, if a smaller sub-panel is needed, or if a full main panel upgrade is required.</li>
+                <li><strong>Recommendation Logic:</strong> The final recommendation compares this new diversified load, plus an assumed existing load (50% of your panel's usable capacity), against the total capacity of your panel. By code, a panel's continuous load should not exceed 80% of its rating. If the new total exceeds this, an upgrade is flagged. A sub-panel is recommended if you have enough panel capacity but not enough physical breaker spaces.</li>
             </ul>
 
-            <h4>Annual Operating Cost Analysis</h4>
-            <p>This is where the tool calculates your potential savings. The core of this calculation is ensuring an "apples-to-apples" comparison of the energy needed.</p>
-            <ol>
-                <li><strong>Calculate Useful Heat:</strong> First, the tool uses the formula above to find the actual amount of useful heat your gas appliances deliver each year.</li>
-                <li><strong>Determine Required Electric Energy:</strong> Next, it calculates how many kilowatt-hours (kWh) an electric appliance would need to produce that same amount of useful heat. This depends on the appliance's efficiency, measured by its <strong>Coefficient of Performance (COP)</strong>.</li>
-            </ol>
-            <div class="formula-box">Electric Energy (kWh) = [Useful Heat (BTU) × 0.000293 kWh/BTU] / COP</div>
-            <p>A heat pump with a COP of 3.0, for example, delivers 3 units of heat for every 1 unit of electricity consumed. The tool adjusts the COP based on your selected <strong>Efficiency Tier</strong> and <strong>Climate Zone</strong> (colder zones slightly reduce heat pump efficiency).</p>
+            <h4>Step 4: Financial Analysis</h4>
+            <p>This section models the complete financial picture of your project over a 15-year lifetime.</p>
             <ul>
-                <li><strong>Final Calculation:</strong> The tool compares the total annual cost (energy + maintenance) of the old gas system to the total annual cost of the new electric system to find your <strong>Net Annual Savings</strong>.</li>
+                <li><strong>Upfront vs. Operating Costs:</strong> The analysis clearly separates the initial investment (equipment, installation, electrical work, minus rebates) from the ongoing annual costs (energy and maintenance).</li>
+                <li><strong>Lifetime Savings & Payback:</strong> By projecting the annual operating costs for both systems forward using the energy price escalation rates you provide, we can calculate the cumulative savings over 15 years. The "Simple Payback Period" is the point where these cumulative savings equal your initial net investment.</li>
+                <li><strong>The "High-Risk Gas Scenario":</strong> This models the potential financial risk of remaining on the gas system. As more customers electrify, the fixed costs of maintaining the gas pipe network are spread across fewer ratepayers, which could lead to significantly higher gas delivery charges for those who remain. This scenario models a higher annual price escalation to illustrate this risk.</li>
             </ul>
             
-            <h4>Understanding the Graphs</h4>
-            <dl>
-                <dt>15-Year Financial Outlook (Total Cost of Ownership)</dt>
-                <dd>This graph shows the <strong>cumulative cost</strong> over 15 years. The electric system line starts high because it includes the upfront installation cost. The gas system line starts at zero (assuming you already own it). The point where the lines cross is the "payback" or "break-even" point, where your total investment in the electric system has been paid for by accumulated savings.</dd>
-                <dt>15-Year Energy Cost Comparison</dt>
-                <dd>This graph is different: it shows <strong>only the cumulative cost of energy</strong> (gas vs. electricity), with both lines starting at zero. It ignores installation and maintenance costs. Its purpose is to give you a clear, uncluttered view of how the fuel costs themselves compare and diverge over time due to the price escalation rates you entered.</dd>
-                <dt>Project Cost Breakdown</dt>
-                <dd>This donut chart shows the major components of the total estimated gross project cost (before rebates), helping you see where the biggest expenses are (e.g., equipment, installation, electrical work).</dd>
-                <dt>Annual Operating Cost Projection</dt>
-                <dd>This bar chart compares the projected operating cost (energy + maintenance) for each individual year. Unlike the cumulative charts, this one makes it easy to see how your annual savings grow year after year as gas prices are projected to rise.</dd>
-            </dl>
-            
-            <h4>Environmental Impact Analysis</h4>
-            <p>This analysis goes beyond just CO₂ from burning gas; it also includes the significant climate impact of methane leakage.</p>
+            <h4>Step 5: Environmental Impact Analysis</h4>
+            <p>This analysis provides a comprehensive look at the climate impact by accounting for both carbon dioxide and the potent effects of methane.</p>
             <ul>
-                <li><strong>Gas Emissions:</strong> The tool calculates CO₂ from combustion (a fixed 5.3 kg per therm). Crucially, it also adds the warming impact from unburned methane (CH₄) that leaks from the gas supply chain ("upstream") and from the appliance itself ("on-site slippage").</li>
-                <li><strong>Global Warming Potential (GWP):</strong> Methane is a much more potent greenhouse gas than CO₂ in the short term. GWP is a metric used to compare its impact.
-                    <ul>
-                        <li><strong>GWP₂₀ (20-Year Horizon):</strong> Over 20 years, one kilogram of methane traps about <strong>84 times</strong> more heat than a kilogram of CO₂. This metric is vital for understanding near-term climate impact.</li>
-                        <li><strong>GWP₁₀₀ (100-Year Horizon):</strong> Over 100 years, that same kilogram of methane traps about <strong>28 times</strong> more heat. This is the standard metric used in many national inventories.</li>
-                    </ul>
-                    The tool calculates your emissions using both horizons to provide a complete picture.
+                <li><strong>The Problem with Methane (CH₄):</strong> Methane is the primary component of natural gas. When it leaks into the atmosphere unburned, it's a powerful greenhouse gas. This analysis includes emissions from:
+                    <ol>
+                        <li><strong>CO₂ from Combustion:</strong> The standard emissions from burning gas (5.3 kg CO₂/therm).</li>
+                        <li><strong>Upstream Methane Leaks:</strong> Methane that leaks from wells, processing plants, and the vast network of pipes before it ever reaches you.</li>
+                        <li><strong>On-site Methane Slip:</strong> Small amounts of unburned gas that can "slip" through a gas appliance during operation.</li>
+                    </ol>
                 </li>
-                <li><strong>Electric Emissions:</strong> The tool calculates the emissions from generating the new electricity you'll use, based on the average emissions rate of the ISO New England grid (approx. 0.26 kg CO₂e per kWh).</li>
-                <li><strong>Net Reduction:</strong> The final result is the total reduction in greenhouse gas emissions, showing the powerful climate benefits of switching off fossil fuels.</li>
+                 <li><strong>GWP₂₀ vs. GWP₁₀₀ (Global Warming Potential):</strong> Methane breaks down in the atmosphere faster than CO₂, so its warming impact changes over time. This tool presents both standard metrics to give a complete picture:
+                    <ul>
+                        <li><strong>GWP₂₀:</strong> Over 20 years, 1 kg of methane is <strong>84 times</strong> more potent than 1 kg of CO₂. This highlights the critical near-term benefit of reducing methane to slow the rate of warming.</li>
+                        <li><strong>GWP₁₀₀:</strong> Over 100 years, the same methane is <strong>28 times</strong> more potent. This is the standard used for long-term climate policy and national inventories.</li>
+                    </ul>
+                </li>
+                <li><strong>Grid Decarbonization:</strong> The emissions from your new electric appliances are based on the current carbon intensity of the ISO New England grid. The "Grid De-CO₂ Rate" you input models how these emissions will automatically decrease year after year as more renewable energy sources like offshore wind and solar are added to the grid. This means your project's climate benefit grows over time.</li>
             </ul>
+            <div class="formula-box">Total Gas CO₂e = (CO₂ from combustion) + (CH₄ from leaks & slip × GWP)</div>
+
+            <h3>Data Sources & Disclaimer</h3>
+            <p>The calculations and default values in this tool are based on data from respected public sources, including the U.S. Environmental Protection Agency (EPA), the Energy Information Administration (EIA), the Intergovernmental Panel on Climate Change (IPCC AR6), ISO New England, and program data from Mass Save. Cost estimates are based on 2024 regional market analysis.</p>
+            <p><strong>IMPORTANT:</strong> This is a sophisticated planning and estimation tool, not a substitute for a professional quote. All cost, electrical, and performance figures are estimates. It is <strong>essential</strong> to obtain detailed, binding quotes from licensed and insured local HVAC and electrical professionals before making any financial commitments.</p>
         </div>
 
         <div id="save-load-content" class="tab-content" role="tabpanel" aria-labelledby="tab-save-load">
