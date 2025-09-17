@@ -1855,6 +1855,14 @@ function renderFullReport(planningAnalysis: PlanningAnalysis, costAnalysis: Cost
     const emissionsFactor = defaultInputs.REGIONAL_DATA[state.region].co2KgPerKwh;
     const regionName = defaultInputs.REGIONAL_DATA[state.region].name;
 
+    // Calculate all environmental impact equivalencies for the full report
+    const ghgReduction100yr = environmentalImpact.annualGhgReductionCo2e100Kg;
+    const carsValue = ghgReduction100yr / KG_CO2E_PER_CAR_YEAR;
+    const milesValue = ghgReduction100yr * MILES_DRIVEN_PER_KG_CO2;
+    const gasolineValue = ghgReduction100yr / GHG_CONVERSION_FACTORS.KG_CO2_PER_GALLON_GASOLINE;
+    const oilValue = ghgReduction100yr / GHG_CONVERSION_FACTORS.KG_CO2E_PER_BARREL_OIL;
+    const treesValue = ghgReduction100yr / GHG_CONVERSION_FACTORS.KG_CO2E_PER_TREE_10_YEARS;
+
 
     let environmentalHtml = `
         <p>This analysis includes direct carbon dioxide (CO₂) emissions from gas combustion and accounts for methane (CH₄) leakage from the gas supply chain and on-site appliance slippage. Methane is a potent greenhouse gas (GHG), and its impact is measured in CO₂ equivalent (CO₂e) using its Global Warming Potential (GWP) over different time horizons.</p>
@@ -1877,9 +1885,35 @@ function renderFullReport(planningAnalysis: PlanningAnalysis, costAnalysis: Cost
                 </tr>
             </tbody>
         </table>
-        <p class="report-note">
-            This project's annual greenhouse gas reduction is equivalent to taking <strong>${formatNumber(environmentalImpact.ghgReductionCarsOffRoad100yr, 2)}</strong> cars off the road for a year.
-        </p>
+        
+        <h4 class="full-report-subsection-title">GHG Reduction Equivalencies</h4>
+        <p>To put the annual GHG reduction of <strong>${formatNumber(environmentalImpact.annualGhgReductionCo2e100Kg, 0)} kg CO₂e</strong> (100-year GWP) into perspective, this is equivalent to any of the following:</p>
+        <table class="full-report-table">
+            <thead><tr><th>Value</th><th>Equivalent To...</th></tr></thead>
+            <tbody>
+                <tr>
+                    <td><strong>${formatNumber(carsValue, 2)}</strong></td>
+                    <td>Passenger cars taken off the road for one year.</td>
+                </tr>
+                <tr>
+                    <td><strong>${formatNumber(milesValue, 0)}</strong></td>
+                    <td>Miles driven by an average passenger vehicle.</td>
+                </tr>
+                <tr>
+                    <td><strong>${formatNumber(gasolineValue, 0)}</strong></td>
+                    <td>Gallons of gasoline consumed.</td>
+                </tr>
+                <tr>
+                    <td><strong>${formatNumber(oilValue, 2)}</strong></td>
+                    <td>Barrels of oil consumed.</td>
+                </tr>
+                <tr>
+                    <td><strong>${formatNumber(treesValue, 0)}</strong></td>
+                    <td>Tree seedlings grown for 10 years.</td>
+                </tr>
+            </tbody>
+        </table>
+
         <div class="report-note">
             <strong>Future Impact with Grid Decarbonization:</strong>
             <br><br>
