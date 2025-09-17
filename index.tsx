@@ -21,6 +21,8 @@ type ApplianceCategory = 'Furnace' | 'Water Heater' | 'Range' | 'Dryer' | 'Boile
 type EfficiencyTier = 'Standard' | 'High' | 'Premium';
 type FacilityType = 'Residential' | 'Small Commercial' | 'Large Commercial' | 'Industrial' | 'Restaurant' | 'Medical' | 'Nursing Home';
 type ClimateZone = 'Zone5' | 'Zone6';
+type Region = 'MA' | 'NY' | 'US_AVG';
+type EVChargerType = 'none' | '32A' | '40A' | '48A';
 
 interface Appliance {
   id: string;
@@ -34,6 +36,7 @@ interface Appliance {
 
 interface State {
   facilityType: FacilityType;
+  region: Region;
   climateZone: ClimateZone;
   addressNumber: string;
   streetName: string;
@@ -43,6 +46,8 @@ interface State {
   panelAmps: number;
   voltage: number;
   breakerSpaces: number;
+  evCharger: EVChargerType;
+  commercialEVStations: number;
   efficiencyTier: EfficiencyTier;
   appliances: Appliance[];
   gasPricePerTherm: number;
@@ -50,12 +55,17 @@ interface State {
   gasPriceEscalation: number;
   electricityPriceEscalation: number;
   highRiskGasEscalation: number;
+  useTouRates: boolean;
+  peakPrice: number;
+  offPeakPrice: number;
+  offPeakUsagePercent: number;
 }
 
 interface ApplianceRecommendation {
     id: string;
     text: string;
     size: string; // e.g., "3.0-ton", "50-gallon"
+    btu: number; // BTU/hr output rating of the replacement
     kw: number; // Peak kW for load calculation
     amps: number;
     breakerSpaces: number;
@@ -200,6 +210,14 @@ const BREAKER_SPACE_REQUIREMENTS: Record<ApplianceCategory, number> = {
     'Furnace': 2, 'Boiler': 2, 'Water Heater': 2, 'Range': 2, 'Dryer': 2, 'Space Heater': 2
 };
 
+const EV_CHARGER_SPECS: Record<EVChargerType, { amps: number, kw: number, breakerSpaces: number }> = {
+    'none': { amps: 0, kw: 0, breakerSpaces: 0 },
+    '32A': { amps: 32, kw: 7.7, breakerSpaces: 2 },
+    '40A': { amps: 40, kw: 9.6, breakerSpaces: 2 },
+    '48A': { amps: 48, kw: 11.5, breakerSpaces: 2 },
+};
+const COMMERCIAL_EV_CHARGER_SPEC = { amps: 40, kw: 9.6, breakerSpaces: 2 };
+
 // Source: Mass Save, MA market averages (for estimation only)
 const DEFAULT_USAGE_BY_FACILITY: Record<FacilityType, {heating: number, nonHeating: number}> = {
     'Residential': { heating: 700, nonHeating: 250 },
@@ -211,20 +229,51 @@ const DEFAULT_USAGE_BY_FACILITY: Record<FacilityType, {heating: number, nonHeati
     'Nursing Home': { heating: 8000, nonHeating: 6000 },
 };
 
+const DEFAULT_EV_STATIONS_BY_FACILITY: Record<FacilityType, number> = {
+    'Residential': 0, // Not used for residential, but good to be explicit
+    'Small Commercial': 2,
+    'Large Commercial': 10,
+    'Industrial': 4,
+    'Restaurant': 4,
+    'Medical': 8,
+    'Nursing Home': 4,
+};
 
-// --- EMISSIONS DATA ---
+
+// --- EMISSIONS & REGIONAL DATA ---
 const CO2_KG_PER_THERM_GAS = 5.3; // Source: EPA, Combustion only
-// Methane leakage and GWP based on MA Climate Plan guidelines
 const UPSTREAM_LEAKAGE_RATE = 0.015; // 1.5% upstream leakage
 const ONSITE_SLIPPAGE_RATE = 0.01; // 1.0% on-site slippage/unburned methane
 const TOTAL_LEAKAGE_RATE = UPSTREAM_LEAKAGE_RATE + ONSITE_SLIPPAGE_RATE;
 const KG_CH4_IN_THERM = 2.36; // Approx. kg of CH4 in 1 therm of natural gas
 const GWP20_CH4 = 84; // 20-year Global Warming Potential of Methane (IPCC AR6)
 const GWP100_CH4 = 28; // 100-year Global Warming Potential of Methane (IPCC AR6)
-// Source: ISO New England 2022 data, for planning purposes.
-const CO2_KG_PER_KWH_MA = 0.26;
 const MILES_DRIVEN_PER_KG_CO2 = 2.48; // Source: EPA, Avg passenger vehicle
 const KG_CO2E_PER_CAR_YEAR = 4600; // Source: EPA, avg passenger vehicle emits 4.6 metric tons CO2e/year
+
+const REGIONAL_DATA: Record<Region, { name: string, gasPrice: number, elecPrice: number, co2KgPerKwh: number, rebates: Record<string, number> }> = {
+    'MA': {
+        name: 'Massachusetts',
+        gasPrice: 1.50,
+        elecPrice: 0.28,
+        co2KgPerKwh: 0.26, // ISO New England
+        rebates: { 'Heat Pump': 10000, 'HPWH': 750, 'Panel Upgrade': 1500 }
+    },
+    'NY': {
+        name: 'New York',
+        gasPrice: 1.35,
+        elecPrice: 0.22,
+        co2KgPerKwh: 0.21, // NYISO is cleaner
+        rebates: { 'Heat Pump': 8000, 'HPWH': 1000, 'Panel Upgrade': 1000 }
+    },
+    'US_AVG': {
+        name: 'US Average',
+        gasPrice: 1.20,
+        elecPrice: 0.17,
+        co2KgPerKwh: 0.45, // US average is higher
+        rebates: { 'Heat Pump': 2000, 'HPWH': 300, 'Panel Upgrade': 0 } // Based on Federal IRA
+    }
+};
 
 
 // --- COST DATA (for estimation purposes) ---
@@ -277,6 +326,8 @@ const DECOMMISSIONING_COSTS: Record<ApplianceCategory, number[]> = {
 };
 const ELECTRICAL_UPGRADE_COSTS = {
     'New Circuit': [500, 1000],
+    'EV Charger Equipment': [500, 800],
+    'EV Charger Circuit': [800, 1500],
     'Sub-panel': [1500, 2500],
     'Panel Upgrade to 125A': [2000, 3500],
     'Panel Upgrade to 150A': [2500, 4000],
@@ -285,15 +336,10 @@ const ELECTRICAL_UPGRADE_COSTS = {
     'Supplemental Heater': [200, 400] // Per unit, for small rooms like bathrooms
 };
 
-// Source: Mass Save, for estimation only.
-const REBATES: Record<string, number> = {
-    'Heat Pump': 10000, // For whole-home systems
-    'HPWH': 750, // Heat Pump Water Heater
-    'Panel Upgrade': 1500, // When installed with heat pump
-};
 
 // --- DOM ELEMENT SELECTORS ---
 const facilityTypeEl = document.getElementById('facility-type') as HTMLSelectElement;
+const regionEl = document.getElementById('region') as HTMLSelectElement;
 const climateZoneEl = document.getElementById('climate-zone') as HTMLSelectElement;
 const addressNumberEl = document.getElementById('address-number') as HTMLInputElement;
 const streetNameEl = document.getElementById('street-name') as HTMLInputElement;
@@ -305,11 +351,24 @@ const panelAmperageEl = document.getElementById('panel-amperage') as HTMLSelectE
 const voltageEl = document.getElementById('voltage') as HTMLInputElement;
 const breakerSpacesEl = document.getElementById('breaker-spaces') as HTMLInputElement;
 const efficiencyTierEl = document.getElementById('efficiency-tier') as HTMLSelectElement;
+
+// EV Charger Inputs
+const residentialEvChargerFieldEl = document.getElementById('residential-ev-charger-field') as HTMLDivElement;
+const evChargerEl = document.getElementById('ev-charger') as HTMLSelectElement;
+const commercialEvStationsFieldEl = document.getElementById('commercial-ev-stations-field') as HTMLDivElement;
+const commercialEvStationsEl = document.getElementById('commercial-ev-stations') as HTMLInputElement;
+
+
 const gasPriceEl = document.getElementById('gas-price') as HTMLInputElement;
 const electricityPriceEl = document.getElementById('electricity-price') as HTMLInputElement;
 const gasPriceEscalationEl = document.getElementById('gas-price-escalation') as HTMLInputElement;
 const electricityPriceEscalationEl = document.getElementById('electricity-price-escalation') as HTMLInputElement;
 const highRiskGasEscalationEl = document.getElementById('high-risk-gas-escalation') as HTMLInputElement;
+const useTouRatesEl = document.getElementById('use-tou-rates') as HTMLInputElement;
+const touRatesGridEl = document.getElementById('tou-rates-grid') as HTMLDivElement;
+const peakPriceEl = document.getElementById('peak-price') as HTMLInputElement;
+const offPeakPriceEl = document.getElementById('off-peak-price') as HTMLInputElement;
+const offPeakUsagePercentEl = document.getElementById('off-peak-percent') as HTMLInputElement;
 
 const appliancesListEl = document.getElementById('appliances-list') as HTMLDivElement;
 const addApplianceBtn = document.getElementById('add-appliance-btn') as HTMLButtonElement;
@@ -363,6 +422,7 @@ let fullReportGhgSourceChart: any | null = null;
 // --- APPLICATION STATE ---
 let state: State = {
   facilityType: 'Residential',
+  region: 'MA',
   climateZone: 'Zone5',
   addressNumber: '45',
   streetName: 'Main Street',
@@ -372,6 +432,8 @@ let state: State = {
   panelAmps: 200,
   voltage: 240,
   breakerSpaces: 4,
+  evCharger: 'none',
+  commercialEVStations: 0,
   efficiencyTier: 'High',
   appliances: [],
   gasPricePerTherm: 1.50,
@@ -379,6 +441,10 @@ let state: State = {
   gasPriceEscalation: 2,
   electricityPriceEscalation: 2,
   highRiskGasEscalation: 7,
+  useTouRates: false,
+  peakPrice: 0.35,
+  offPeakPrice: 0.18,
+  offPeakUsagePercent: 50,
 };
 
 // --- CORE LOGIC ---
@@ -452,8 +518,45 @@ function calculateAnalysis(includedAppliances: Appliance[], currentState: State)
         const breakerSpaces = BREAKER_SPACE_REQUIREMENTS[definition.category];
         const { text, size } = getApplianceRecommendation(app, currentState.efficiencyTier);
 
-        return { id: app.id, text, size, kw, amps, breakerSpaces };
+        let btu = 0;
+        if (size.endsWith('-ton')) {
+            const tons = parseFloat(size);
+            btu = tons * 12000;
+        } else if (definition.category === 'Water Heater') {
+            // For HPWH, rating is based on output. Let's use the useful heat of the gas unit it replaces.
+            btu = app.btu * (app.efficiency / 100);
+        } else if (definition.category === 'Range' || definition.category === 'Dryer') {
+            // For resistive or other appliances, convert peak kW to BTU/hr
+            btu = kw * 3412.14;
+        }
+
+        return { id: app.id, text, size, btu, kw, amps, breakerSpaces };
     });
+
+    if (currentState.facilityType === 'Residential' && currentState.evCharger !== 'none') {
+        const chargerSpec = EV_CHARGER_SPECS[currentState.evCharger];
+        recommendations.push({
+            id: 'ev-charger',
+            text: `Level 2 EV Charger (${currentState.evCharger})`,
+            size: 'N/A',
+            btu: 0, // EV chargers don't have a BTU rating for heating/cooling
+            kw: chargerSpec.kw,
+            amps: chargerSpec.amps,
+            breakerSpaces: chargerSpec.breakerSpaces
+        });
+    } else if (currentState.facilityType !== 'Residential' && currentState.commercialEVStations > 0) {
+        for (let i = 0; i < currentState.commercialEVStations; i++) {
+            recommendations.push({
+                id: `ev-station-${i + 1}`,
+                text: `Commercial EV Station #${i + 1} (40A)`,
+                size: 'N/A',
+                btu: 0,
+                kw: COMMERCIAL_EV_CHARGER_SPEC.kw,
+                amps: COMMERCIAL_EV_CHARGER_SPEC.amps,
+                breakerSpaces: COMMERCIAL_EV_CHARGER_SPEC.breakerSpaces,
+            });
+        }
+    }
 
     const sumOfPeakAmps = recommendations.reduce((sum, r) => sum + r.amps, 0);
     const requiredBreakerSpaces = recommendations.reduce((sum, r) => sum + r.breakerSpaces, 0);
@@ -498,21 +601,25 @@ function calculateRebates(analysis: PlanningAnalysis, includedAppliances: Applia
     const rebates: RebateItem[] = [];
     if (includedAppliances.length === 0) return rebates;
 
+    const regionalRebates = REGIONAL_DATA[state.region].rebates;
+
     const recommendedApplianceTypes = new Set(
-        analysis.recommendations.map(rec => {
-            const appliance = state.appliances.find(a => a.id === rec.id)!;
-            return getApplianceRecommendation(appliance, state.efficiencyTier).electricType;
-        })
+        analysis.recommendations
+            .filter(rec => !rec.id.startsWith('ev-')) // Exclude EV chargers
+            .map(rec => {
+                const appliance = state.appliances.find(a => a.id === rec.id)!;
+                return getApplianceRecommendation(appliance, state.efficiencyTier).electricType;
+            })
     );
 
-    if (recommendedApplianceTypes.has('Heat Pump') && REBATES['Heat Pump']) {
-        rebates.push({ name: 'Heat Pump Rebate', amount: REBATES['Heat Pump'] });
+    if (recommendedApplianceTypes.has('Heat Pump') && regionalRebates['Heat Pump']) {
+        rebates.push({ name: 'Heat Pump Rebate', amount: regionalRebates['Heat Pump'] });
     }
-    if (recommendedApplianceTypes.has('HPWH') && REBATES['HPWH']) {
-        rebates.push({ name: 'HPWH Rebate', amount: REBATES['HPWH'] });
+    if (recommendedApplianceTypes.has('HPWH') && regionalRebates['HPWH']) {
+        rebates.push({ name: 'HPWH Rebate', amount: regionalRebates['HPWH'] });
     }
-    if (analysis.panelStatus.startsWith('Upgrade') && recommendedApplianceTypes.has('Heat Pump') && REBATES['Panel Upgrade']) {
-         rebates.push({ name: 'Panel Upgrade Rebate', amount: REBATES['Panel Upgrade'] });
+    if (analysis.panelStatus.startsWith('Upgrade') && recommendedApplianceTypes.has('Heat Pump') && regionalRebates['Panel Upgrade']) {
+         rebates.push({ name: 'Panel Upgrade Rebate', amount: regionalRebates['Panel Upgrade'] });
     }
 
     return rebates;
@@ -522,7 +629,9 @@ function calculateCostAnalysis(analysis: PlanningAnalysis, includedAppliances: A
     const applianceCosts = new Map<string, CostItem[]>();
     let totalLow = 0, totalHigh = 0;
 
-    analysis.recommendations.forEach(rec => {
+    const applianceRecs = analysis.recommendations.filter(r => !r.id.startsWith('ev-'));
+
+    applianceRecs.forEach(rec => {
         const appliance = state.appliances.find(a => a.id === rec.id)!;
         const definition = APPLIANCE_DEFINITIONS[appliance.key];
         const category = definition.category;
@@ -558,6 +667,19 @@ function calculateCostAnalysis(analysis: PlanningAnalysis, includedAppliances: A
     });
 
     const electricalCosts: CostItem[] = [];
+
+    // Add EV Charger costs first
+    const evChargerCount = analysis.recommendations.filter(r => r.id.startsWith('ev-')).length;
+    if (evChargerCount > 0) {
+        // Equipment hardware cost
+        const [equipLow, equipHigh] = ELECTRICAL_UPGRADE_COSTS['EV Charger Equipment'];
+        electricalCosts.push({ name: `EV Charging Station(s) (${evChargerCount})`, low: equipLow * evChargerCount, high: equipHigh * evChargerCount });
+        // Circuit installation cost
+        const [circuitLow, circuitHigh] = ELECTRICAL_UPGRADE_COSTS['EV Charger Circuit'];
+        electricalCosts.push({ name: `EV Charger Circuit(s) (${evChargerCount})`, low: circuitLow * evChargerCount, high: circuitHigh * evChargerCount });
+    }
+
+    // Add panel/sub-panel costs
     if (analysis.panelStatus.startsWith('Upgrade')) {
         const size = analysis.panelStatus.match(/\d+/)?.[0];
         const key = `Panel Upgrade to ${size}A` as keyof typeof ELECTRICAL_UPGRADE_COSTS;
@@ -568,10 +690,11 @@ function calculateCostAnalysis(analysis: PlanningAnalysis, includedAppliances: A
         electricalCosts.push({ name: 'Sub-panel Installation', low, high });
     }
 
-    if (analysis.recommendations.length > 0) {
+    // Add circuit costs for appliances
+    const numApplianceCircuits = applianceRecs.length;
+    if (numApplianceCircuits > 0) {
         const [low, high] = ELECTRICAL_UPGRADE_COSTS['New Circuit'];
-        const numCircuits = analysis.recommendations.length;
-        electricalCosts.push({ name: `${numCircuits} New Circuit(s)`, low: low * numCircuits, high: high * numCircuits });
+        electricalCosts.push({ name: `${numApplianceCircuits} New Appliance Circuit(s)`, low: low * numApplianceCircuits, high: high * numApplianceCircuits });
     }
     
     // Add supplemental heaters if a boiler is being replaced
@@ -586,7 +709,6 @@ function calculateCostAnalysis(analysis: PlanningAnalysis, includedAppliances: A
             high: high * numHeaters
         });
     }
-
 
     // Sum totals
     for(const costs of applianceCosts.values()) {
@@ -682,13 +804,23 @@ function calculateFinancialAnalysis(costAnalysis: CostAnalysis, includedApplianc
     
     // Calculate fuel/energy costs
     const currentAnnualGasCost = totalTherms * state.gasPricePerTherm;
-    const projectedAnnualElecCost = projectedAnnualKwh * state.electricityPricePerKwh;
+    
+    let projectedAnnualElecCost = 0;
+    if (state.useTouRates) {
+        const offPeakKwh = projectedAnnualKwh * (state.offPeakUsagePercent / 100);
+        const peakKwh = projectedAnnualKwh * (1 - (state.offPeakUsagePercent / 100));
+        projectedAnnualElecCost = (offPeakKwh * state.offPeakPrice) + (peakKwh * state.peakPrice);
+    } else {
+        projectedAnnualElecCost = projectedAnnualKwh * state.electricityPricePerKwh;
+    }
+
 
     // Calculate maintenance costs
     let currentAnnualMaintenanceCost = 0;
     let projectedAnnualMaintenanceCost = 0;
     includedAppliances.forEach(app => {
         const category = APPLIANCE_DEFINITIONS[app.key].category;
+        // Fix: Corrected typo in variable name from GAS_APPLIANCE_MAINTENANCE_ COSTS to GAS_APPLIANCE_MAINTENANCE_COSTS
         currentAnnualMaintenanceCost += GAS_APPLIANCE_MAINTENANCE_COSTS[category] || 0;
         projectedAnnualMaintenanceCost += ELECTRIC_APPLIANCE_MAINTENANCE_COSTS[category] || 0;
     });
@@ -727,7 +859,7 @@ function calculateEnvironmentalImpact(includedAppliances: Appliance[], state: St
     const currentAnnualGasCo2e100Kg = currentAnnualGasCo2Kg + (currentAnnualCh4Kg * GWP100_CH4);
 
     // Projected electric emissions
-    const projectedAnnualElecCo2Kg = projectedAnnualKwh * CO2_KG_PER_KWH_MA;
+    const projectedAnnualElecCo2Kg = projectedAnnualKwh * REGIONAL_DATA[state.region].co2KgPerKwh;
 
     // Reductions
     const annualGhgReductionCo2e20Kg = currentAnnualGasCo2e20Kg - projectedAnnualElecCo2Kg;
@@ -836,13 +968,13 @@ function calculateDistributionImpact(planningAnalysis: PlanningAnalysis, state: 
     const nonHeatingCategories: ApplianceCategory[] = ['Water Heater', 'Range', 'Dryer'];
 
     const heatingRecommendations = planningAnalysis.recommendations.filter(rec => {
-        const appliance = state.appliances.find(a => a.id === rec.id)!;
-        return !nonHeatingCategories.includes(APPLIANCE_DEFINITIONS[appliance.key].category);
+        const appliance = state.appliances.find(a => a.id === rec.id);
+        return appliance && !nonHeatingCategories.includes(APPLIANCE_DEFINITIONS[appliance.key].category);
     });
 
     const nonHeatingRecommendations = planningAnalysis.recommendations.filter(rec => {
-        const appliance = state.appliances.find(a => a.id === rec.id)!;
-        return nonHeatingCategories.includes(APPLIANCE_DEFINITIONS[appliance.key].category);
+        const appliance = state.appliances.find(a => a.id === rec.id);
+        return appliance && nonHeatingCategories.includes(APPLIANCE_DEFINITIONS[appliance.key].category);
     });
 
     const peakDemandKw = planningAnalysis.recommendations.reduce((sum, r) => sum + r.kw, 0);
@@ -1327,7 +1459,7 @@ function renderReport(planningAnalysis: PlanningAnalysis, costAnalysis: CostAnal
     // Details
     reportDetailsEl.innerHTML = '';
     const includedAppliances = state.appliances.filter(a => a.included);
-    if (includedAppliances.length === 0) {
+    if (includedAppliances.length === 0 && state.commercialEVStations === 0 && state.evCharger === 'none') {
         reportDetailsEl.innerHTML = '<p class="empty-state">Select one or more appliances in the "Plan" column to generate a report.</p>';
         if (fullReportLifetimeChart) fullReportLifetimeChart.destroy();
         if (fullReportEnergyCostChart) fullReportEnergyCostChart.destroy();
@@ -1373,7 +1505,7 @@ function renderReport(planningAnalysis: PlanningAnalysis, costAnalysis: CostAnal
 
 function renderFullReport(planningAnalysis: PlanningAnalysis, costAnalysis: CostAnalysis, financialAnalysis: FinancialAnalysis, environmentalImpact: EnvironmentalImpact, lifetimeAnalysis: LifetimeAnalysis, distributionImpact: DistributionImpactAnalysis, energyCostOutlook: EnergyCostOutlook) {
     const includedAppliances = state.appliances.filter(a => a.included);
-    if (includedAppliances.length === 0) {
+    if (includedAppliances.length === 0 && state.evCharger === 'none' && state.commercialEVStations === 0) {
         fullReportContentEl.innerHTML = '<p class="empty-state">Select one or more appliances on the Planner tab to generate a full report.</p>';
         if (fullReportLifetimeChart) fullReportLifetimeChart.destroy();
         if (fullReportEnergyCostChart) fullReportEnergyCostChart.destroy();
@@ -1387,24 +1519,30 @@ function renderFullReport(planningAnalysis: PlanningAnalysis, costAnalysis: Cost
     const address = [state.addressNumber, state.streetName, state.town].filter(Boolean).join(' ');
     const today = new Date().toLocaleDateString('en-US', { year: 'numeric', month: 'long', day: 'numeric' });
     const climateZoneText = state.climateZone === 'Zone5' ? "Zone 5 (Most of MA)" : "Zone 6 (Berkshires)";
+    const regionName = REGIONAL_DATA[state.region].name;
 
     let inputsHtml = `
         <table class="full-report-table">
             <tr><th>Facility Type</th><td>${state.facilityType}</td></tr>
+            <tr><th>State/Region</th><td>${regionName}</td></tr>
             <tr><th>Climate Zone</th><td>${climateZoneText}</td></tr>
             <tr><th>Heating Gas Usage</th><td>${state.annualHeatingTherms.toLocaleString()} therms/yr</td></tr>
             <tr><th>Non-Heating Gas Usage</th><td>${state.annualNonHeatingTherms.toLocaleString()} therms/yr</td></tr>
             <tr><th>Main Panel</th><td>${state.panelAmps}A @ ${state.voltage}V</td></tr>
             <tr><th>Available Breaker Spaces</th><td>${state.breakerSpaces}</td></tr>
+            ${state.facilityType === 'Residential'
+                ? `<tr><th>EV Charger Included</th><td>${state.evCharger === 'none' ? 'None' : `Level 2 (${state.evCharger})`}</td></tr>`
+                : `<tr><th>Number of EV Stations</th><td>${state.commercialEVStations}</td></tr>`
+            }
             <tr><th>Efficiency Target</th><td>${state.efficiencyTier}</td></tr>
-            <tr><th>Gas Price</th><td>${formatCurrency(state.gasPricePerTherm)} / therm</td></tr>
-            <tr><th>Electricity Price</th><td>${formatCurrency(state.electricityPricePerKwh, false)} / kWh</td></tr>
+            <tr><th>Gas Price</th><td>$${state.gasPricePerTherm.toFixed(2)} / therm</td></tr>
+            <tr><th>Electricity Price</th><td>${state.useTouRates ? `TOU Rates (Peak: $${state.peakPrice.toFixed(2)}, Off-Peak: $${state.offPeakPrice.toFixed(2)})` : `$${state.electricityPricePerKwh.toFixed(2)} / kWh`}</td></tr>
         </table>
     `;
 
     const replacedCategories = new Set(planningAnalysis.recommendations.map(rec => {
-        const appliance = state.appliances.find(a => a.id === rec.id)!;
-        return APPLIANCE_DEFINITIONS[appliance.key].category;
+        const appliance = state.appliances.find(a => a.id === rec.id);
+        return appliance ? APPLIANCE_DEFINITIONS[appliance.key].category : '';
     }));
     const hasFurnace = replacedCategories.has('Furnace');
     const hasBoiler = replacedCategories.has('Boiler');
@@ -1413,12 +1551,14 @@ function renderFullReport(planningAnalysis: PlanningAnalysis, costAnalysis: Cost
 
     let planHtml = `
         <table class="full-report-table">
-            <thead><tr><th>Gas Appliance</th><th>BTU/hr</th><th>Efficiency</th><th>Electric Replacement</th></tr></thead>
+            <thead><tr><th>Gas Appliance</th><th>BTU/hr</th><th>Efficiency</th><th>Electric Replacement</th><th>BTU/hr Output</th></tr></thead>
             <tbody>
-            ${planningAnalysis.recommendations.map(rec => {
+            ${planningAnalysis.recommendations
+                .filter(rec => !rec.id.startsWith('ev-'))
+                .map(rec => {
                 const appliance = state.appliances.find(a => a.id === rec.id)!;
                 const definition = APPLIANCE_DEFINITIONS[appliance.key];
-                return `<tr><td>${definition.name}</td><td>${appliance.btu.toLocaleString()}</td><td>${appliance.efficiency}%</td><td>${rec.text.replace(/<strong>/g, '').replace(/<\/strong>/g, '')}</td></tr>`;
+                return `<tr><td>${definition.name}</td><td>${appliance.btu.toLocaleString()}</td><td>${appliance.efficiency}%</td><td>${rec.text.replace(/<strong>/g, '').replace(/<\/strong>/g, '')}</td><td>${rec.btu > 0 ? rec.btu.toLocaleString(undefined, { maximumFractionDigits: 0 }) : 'N/A'}</td></tr>`;
             }).join('')}
             </tbody>
         </table>
@@ -1443,8 +1583,8 @@ function renderFullReport(planningAnalysis: PlanningAnalysis, costAnalysis: Cost
     }
     
     const diversityExplanation = state.facilityType === 'Residential'
-        ? 'For residential properties, a diversity factor is applied assuming not all appliances run at peak power simultaneously. This estimate uses 100% of the largest load (typically the heat pump) and 50% of the sum of all other new loads.'
-        : 'For commercial properties, a diversity factor is applied based on the total connected load. This estimate uses 100% of the first 80 Amps and 75% of the remaining load, per standard electrical guidelines.';
+        ? 'For residential properties, a diversity factor is applied based on National Electrical Code (NEC) principles where not all appliances run at peak power simultaneously. This estimate uses 100% of the largest load (typically the heat pump) and 50% of the sum of all other new loads.'
+        : 'For commercial properties, a diversity factor is applied based on standard electrical guidelines for general loads. This estimate uses 100% of the first 80 Amps of new load and 75% of the remaining load.';
 
     let electricalHtml = `
         <p>A load calculation estimates the total power demand of the new appliances to ensure the existing electrical panel has sufficient capacity. Simply summing the peak demand of each appliance provides a theoretical maximum, while applying a <strong>diversity factor</strong> provides a more realistic estimate of the actual peak load.</p>
@@ -1505,6 +1645,7 @@ function renderFullReport(planningAnalysis: PlanningAnalysis, costAnalysis: Cost
                 </tr>
              </tbody>
         </table>
+        <p class="report-note"><strong>Note on Diversity:</strong> The "Estimated Diversified Peak" is calculated using the same methodology as the on-site electrical load analysis. This approach applies a standard diversity factor to provide a more realistic estimate of demand, as it is unlikely all appliances will operate at maximum power simultaneously. ${diversityExplanation}</p>
     `;
     
     // Methane breakdown for environmental report
@@ -1512,6 +1653,7 @@ function renderFullReport(planningAnalysis: PlanningAnalysis, costAnalysis: Cost
     const totalTherms = heatingTherms + nonHeatingTherms;
     const upstreamCh4Kg = totalTherms * KG_CH4_IN_THERM * UPSTREAM_LEAKAGE_RATE;
     const onsiteCh4Kg = totalTherms * KG_CH4_IN_THERM * ONSITE_SLIPPAGE_RATE;
+    const emissionsFactor = REGIONAL_DATA[state.region].co2KgPerKwh;
 
     let environmentalHtml = `
         <p>This analysis includes direct carbon dioxide (CO₂) emissions from gas combustion and accounts for methane (CH₄) leakage from the gas supply chain and on-site appliance slippage. Methane is a potent greenhouse gas (GHG), and its impact is measured in CO₂ equivalent (CO₂e) using its Global Warming Potential (GWP) over different time horizons.</p>
@@ -1538,7 +1680,7 @@ function renderFullReport(planningAnalysis: PlanningAnalysis, costAnalysis: Cost
             This project's annual greenhouse gas reduction is equivalent to taking <strong>${environmentalImpact.ghgReductionCarsOffRoad100yr.toFixed(1)}</strong> cars off the road for a year.
         </p>
         <p style="margin-top: 1rem; font-size: 0.9em; color: var(--text-muted);">
-            Gas emissions breakdown: <strong>${environmentalImpact.currentAnnualGasCo2Kg.toLocaleString(undefined, {maximumFractionDigits: 0})} kg of CO₂</strong> from combustion, <strong>${upstreamCh4Kg.toLocaleString(undefined, {maximumFractionDigits: 1})} kg of CH₄</strong> from upstream supply chain leaks, and <strong>${onsiteCh4Kg.toLocaleString(undefined, {maximumFractionDigits: 1})} kg of CH₄</strong> from on-site appliance slippage (unburned gas).
+            Gas emissions breakdown: <strong>${environmentalImpact.currentAnnualGasCo2Kg.toLocaleString(undefined, {maximumFractionDigits: 0})} kg of CO₂</strong> from combustion, <strong>${upstreamCh4Kg.toLocaleString(undefined, {maximumFractionDigits: 1})} kg of CH₄</strong> from upstream supply chain leaks, and <strong>${onsiteCh4Kg.toLocaleString(undefined, {maximumFractionDigits: 1})} kg of CH₄</strong> from on-site appliance slippage (unburned gas). Electric emissions are based on the average grid intensity for ${regionName} (approx. ${emissionsFactor} kg CO₂e/kWh).
         </p>
         <h4 class="full-report-subsection-title">Annual Emissions Breakdown (20-Year GWP)</h4>
         <div class="chart-container" style="height: 400px; margin-top: 1.5rem;">
@@ -1691,14 +1833,16 @@ function renderFullReport(planningAnalysis: PlanningAnalysis, costAnalysis: Cost
     let rebatesHtml = '';
     if (costAnalysis.rebates.length > 0) {
         let rebateListItems = '';
+        const regionalRebates = REGIONAL_DATA[state.region].rebates;
+
         if (costAnalysis.rebates.some(r => r.name.includes('Heat Pump'))) {
-            rebateListItems += `<li><strong>Whole-Home Heat Pump Rebate (${formatCurrency(REBATES['Heat Pump'])}):</strong> This is the largest incentive, typically available when you install a heat pump system that serves as the sole source of heating for your entire home, replacing 100% of your fossil fuel system.</li>`;
+            rebateListItems += `<li><strong>Whole-Home Heat Pump Rebate (${formatCurrency(regionalRebates['Heat Pump'])}):</strong> This is the largest incentive, typically available when you install a heat pump system that serves as the sole source of heating for your entire home, replacing 100% of your fossil fuel system.</li>`;
         }
         if (costAnalysis.rebates.some(r => r.name.includes('HPWH'))) {
-            rebateListItems += `<li><strong>Heat Pump Water Heater (HPWH) Rebate (${formatCurrency(REBATES['HPWH'])}):</strong> An incentive for replacing a gas or standard electric water heater with a high-efficiency heat pump model.</li>`;
+            rebateListItems += `<li><strong>Heat Pump Water Heater (HPWH) Rebate (${formatCurrency(regionalRebates['HPWH'])}):</strong> An incentive for replacing a gas or standard electric water heater with a high-efficiency heat pump model.</li>`;
         }
         if (costAnalysis.rebates.some(r => r.name.includes('Panel Upgrade'))) {
-            rebateListItems += `<li><strong>Panel Upgrade Rebate (${formatCurrency(REBATES['Panel Upgrade'])}):</strong> This incentive helps offset the cost of upgrading your main electrical panel when it's required for a heat pump installation.</li>`;
+            rebateListItems += `<li><strong>Panel Upgrade Rebate (${formatCurrency(regionalRebates['Panel Upgrade'])}):</strong> This incentive helps offset the cost of upgrading your main electrical panel when it's required for a heat pump installation.</li>`;
         }
 
         rebatesHtml = `
@@ -1932,6 +2076,7 @@ function updateStateFromUI() {
 
   state = {
     facilityType: facilityTypeEl.value as FacilityType,
+    region: regionEl.value as Region,
     climateZone: climateZoneEl.value as ClimateZone,
     addressNumber: addressNumberEl.value,
     streetName: streetNameEl.value,
@@ -1941,6 +2086,8 @@ function updateStateFromUI() {
     panelAmps: parseInt(panelAmperageEl.value, 10),
     voltage: parseInt(voltageEl.value, 10) || 240,
     breakerSpaces: parseInt(breakerSpacesEl.value, 10) || 0,
+    evCharger: evChargerEl.value as EVChargerType,
+    commercialEVStations: parseInt(commercialEvStationsEl.value, 10) || 0,
     efficiencyTier: efficiencyTierEl.value as EfficiencyTier,
     appliances: newAppliances,
     gasPricePerTherm: parseFloat(gasPriceEl.value) || 0,
@@ -1948,12 +2095,17 @@ function updateStateFromUI() {
     gasPriceEscalation: parseFloat(gasPriceEscalationEl.value) || 0,
     electricityPriceEscalation: parseFloat(electricityPriceEscalationEl.value) || 0,
     highRiskGasEscalation: parseFloat(highRiskGasEscalationEl.value) || 0,
+    useTouRates: useTouRatesEl.checked,
+    peakPrice: parseFloat(peakPriceEl.value) || 0,
+    offPeakPrice: parseFloat(offPeakPriceEl.value) || 0,
+    offPeakUsagePercent: parseInt(offPeakUsagePercentEl.value, 10) || 0,
   };
 }
 
 /** Updates all UI input values based on the current state object. */
 function updateUIFromState() {
     facilityTypeEl.value = state.facilityType;
+    regionEl.value = state.region;
     climateZoneEl.value = state.climateZone;
     addressNumberEl.value = state.addressNumber;
     streetNameEl.value = state.streetName;
@@ -1963,12 +2115,25 @@ function updateUIFromState() {
     panelAmperageEl.value = state.panelAmps.toString();
     voltageEl.value = state.voltage.toString();
     breakerSpacesEl.value = state.breakerSpaces.toString();
+    evChargerEl.value = state.evCharger;
+    commercialEvStationsEl.value = state.commercialEVStations.toString();
     efficiencyTierEl.value = state.efficiencyTier;
     gasPriceEl.value = state.gasPricePerTherm.toFixed(2);
     electricityPriceEl.value = state.electricityPricePerKwh.toFixed(2);
     gasPriceEscalationEl.value = state.gasPriceEscalation.toString();
     electricityPriceEscalationEl.value = state.electricityPriceEscalation.toString();
     highRiskGasEscalationEl.value = state.highRiskGasEscalation.toString();
+    useTouRatesEl.checked = state.useTouRates;
+    peakPriceEl.value = state.peakPrice.toFixed(2);
+    offPeakPriceEl.value = state.offPeakPrice.toFixed(2);
+    offPeakUsagePercentEl.value = state.offPeakUsagePercent.toString();
+
+    touRatesGridEl.classList.toggle('hidden', !state.useTouRates);
+
+    // Toggle EV input visibility based on loaded state
+    const isResidential = state.facilityType === 'Residential';
+    residentialEvChargerFieldEl.classList.toggle('hidden', !isResidential);
+    commercialEvStationsFieldEl.classList.toggle('hidden', isResidential);
 }
 
 
@@ -1979,13 +2144,43 @@ function updateStateAndRender() {
 
 function handleFacilityTypeChange() {
     const facilityType = facilityTypeEl.value as FacilityType;
-    const defaults = DEFAULT_USAGE_BY_FACILITY[facilityType];
-    if (defaults) {
-        annualHeatingThermsEl.value = defaults.heating.toString();
-        annualNonHeatingThermsEl.value = defaults.nonHeating.toString();
+    
+    // Toggle visibility of EV charger inputs
+    const isResidential = facilityType === 'Residential';
+    residentialEvChargerFieldEl.classList.toggle('hidden', !isResidential);
+    commercialEvStationsFieldEl.classList.toggle('hidden', isResidential);
+
+    // Set default gas usage
+    const usageDefaults = DEFAULT_USAGE_BY_FACILITY[facilityType];
+    if (usageDefaults) {
+        annualHeatingThermsEl.value = usageDefaults.heating.toString();
+        annualNonHeatingThermsEl.value = usageDefaults.nonHeating.toString();
+    }
+    
+    // Set default EV stations for non-residential
+    if (!isResidential) {
+        const stationDefaults = DEFAULT_EV_STATIONS_BY_FACILITY[facilityType] || 0;
+        commercialEvStationsEl.value = stationDefaults.toString();
+    }
+
+    updateStateAndRender();
+}
+
+function handleRegionChange() {
+    const region = regionEl.value as Region;
+    const regionData = REGIONAL_DATA[region];
+    if (regionData) {
+        gasPriceEl.value = regionData.gasPrice.toFixed(2);
+        electricityPriceEl.value = regionData.elecPrice.toFixed(2);
     }
     updateStateAndRender();
 }
+
+function handleTouToggle() {
+    touRatesGridEl.classList.toggle('hidden', !useTouRatesEl.checked);
+    updateStateAndRender();
+}
+
 
 function addApplianceByKey(key: string) {
     const definition = APPLIANCE_DEFINITIONS[key];
@@ -2150,6 +2345,8 @@ allInputs.forEach(input => {
     input.addEventListener('change', updateStateAndRender);
 });
 facilityTypeEl.addEventListener('change', handleFacilityTypeChange);
+regionEl.addEventListener('change', handleRegionChange);
+useTouRatesEl.addEventListener('change', handleTouToggle);
 
 
 // Modal listeners

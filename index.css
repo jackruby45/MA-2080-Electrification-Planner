@@ -260,6 +260,39 @@ input[type="number"]:focus, input[type="text"]:focus, select:focus {
     box-shadow: 0 0 0 3px rgba(0, 95, 204, 0.2);
 }
 
+.full-width-field {
+    grid-column: 1 / -1;
+}
+
+.checkbox-field {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    margin-top: 1rem;
+    padding: 0.5rem;
+    background-color: #f8f9fa;
+    border-radius: var(--border-radius);
+}
+
+.checkbox-field input[type="checkbox"] {
+    width: 1.15rem;
+    height: 1.15rem;
+    accent-color: var(--primary-color);
+}
+
+.checkbox-field label {
+    margin-bottom: 0;
+    font-weight: 500;
+    color: var(--text-color);
+    cursor: pointer;
+}
+
+#tou-rates-grid {
+    margin-top: 1rem;
+    padding-top: 1rem;
+    border-top: 1px dashed var(--border-color);
+}
+
 #appliances-list {
     display: flex;
     flex-direction: column;

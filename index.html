@@ -51,6 +51,21 @@
                             </select>
                         </div>
                         <div class="form-field">
+                            <label for="region">State/Region
+                                <div class="tooltip-container">
+                                    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" class="tooltip-icon">
+                                      <path fill-rule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7-4a1 1 0 11-2 0 1 1 0 012 0zM9 9a1 1 0 000 2v3a1 1 0 001 1h1a1 1 0 100-2v-3a1 1 0 00-1-1H9z" clip-rule="evenodd" />
+                                    </svg>
+                                    <span class="tooltip-text">Select your state to load typical utility rates, grid emissions data, and available rebates.</span>
+                                </div>
+                            </label>
+                            <select id="region" name="region">
+                                <option value="MA" selected>Massachusetts</option>
+                                <option value="NY">New York</option>
+                                <option value="US_AVG">US Average</option>
+                            </select>
+                        </div>
+                        <div class="form-field">
                             <label for="climate-zone">Climate Zone
                                 <div class="tooltip-container">
                                     <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" class="tooltip-icon">
@@ -147,6 +162,33 @@
                             </label>
                             <input type="number" id="breaker-spaces" name="breaker-spaces" value="4" min="0">
                         </div>
+                        <div id="residential-ev-charger-field" class="form-field">
+                            <label for="ev-charger">Include EV Charger
+                                <div class="tooltip-container">
+                                    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" class="tooltip-icon">
+                                      <path fill-rule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7-4a1 1 0 11-2 0 1 1 0 012 0zM9 9a1 1 0 000 2v3a1 1 0 001 1h1a1 1 0 100-2v-3a1 1 0 00-1-1H9z" clip-rule="evenodd" />
+                                    </svg>
+                                    <span class="tooltip-text">Include a Level 2 EV charger in the electrical load calculation to assess its impact on your panel.</span>
+                                </div>
+                            </label>
+                            <select id="ev-charger" name="ev-charger">
+                                <option value="none">None</option>
+                                <option value="32A">Level 2 (32A / 7.7kW)</option>
+                                <option value="40A">Level 2 (40A / 9.6kW)</option>
+                                <option value="48A">Level 2 (48A / 11.5kW)</option>
+                            </select>
+                        </div>
+                        <div id="commercial-ev-stations-field" class="form-field hidden">
+                            <label for="commercial-ev-stations">Number of EV Stations
+                                <div class="tooltip-container">
+                                    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" class="tooltip-icon">
+                                      <path fill-rule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7-4a1 1 0 11-2 0 1 1 0 012 0zM9 9a1 1 0 000 2v3a1 1 0 001 1h1a1 1 0 100-2v-3a1 1 0 00-1-1H9z" clip-rule="evenodd" />
+                                    </svg>
+                                    <span class="tooltip-text">Enter the number of Level 2 (40A) EV charging stations to include in the load calculation. A typical count is pre-filled based on facility type.</span>
+                                </div>
+                            </label>
+                            <input type="number" id="commercial-ev-stations" name="commercial-ev-stations" value="0" min="0">
+                        </div>
                          <div class="form-field">
                             <label for="efficiency-tier">Efficiency Target
                                  <div class="tooltip-container">
@@ -166,6 +208,44 @@
                 </div>
                  <div class="card">
                     <h3 class="card-title">Utility Costs & Projections</h3>
+                     <div class="form-grid">
+                         <div class="form-field full-width-field">
+                            <div class="checkbox-field">
+                                <input type="checkbox" id="use-tou-rates" name="use-tou-rates">
+                                <label for="use-tou-rates">Use Advanced Time-of-Use (TOU) Electric Rates</label>
+                            </div>
+                        </div>
+                     </div>
+                     <div id="tou-rates-grid" class="form-grid cost-grid hidden">
+                        <div class="form-field">
+                            <label for="peak-price">Peak Rate ($/kWh)</label>
+                            <div class="input-with-unit unit-left">
+                                 <span>$</span>
+                                <input type="number" id="peak-price" name="peak-price" value="0.35" step="0.01" min="0">
+                            </div>
+                        </div>
+                        <div class="form-field">
+                            <label for="off-peak-price">Off-Peak Rate ($/kWh)</label>
+                            <div class="input-with-unit unit-left">
+                                 <span>$</span>
+                                <input type="number" id="off-peak-price" name="off-peak-price" value="0.18" step="0.01" min="0">
+                            </div>
+                        </div>
+                        <div class="form-field">
+                            <label for="off-peak-percent">Off-Peak Usage %
+                                <div class="tooltip-container">
+                                    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" class="tooltip-icon">
+                                      <path fill-rule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7-4a1 1 0 11-2 0 1 1 0 012 0zM9 9a1 1 0 000 2v3a1 1 0 001 1h1a1 1 0 100-2v-3a1 1 0 00-1-1H9z" clip-rule="evenodd" />
+                                    </svg>
+                                    <span class="tooltip-text">Estimate the percentage of your new heating/cooling load that will occur during off-peak hours.</span>
+                                </div>
+                            </label>
+                            <div class="input-with-unit unit-right">
+                                <input type="number" id="off-peak-percent" name="off-peak-percent" value="50" step="1" min="0" max="100">
+                                <span>%</span>
+                            </div>
+                        </div>
+                    </div>
                      <div class="form-grid cost-grid">
                         <div class="form-field">
                             <label for="gas-price">Gas Price ($/therm)
@@ -187,7 +267,7 @@
                                     <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" class="tooltip-icon">
                                       <path fill-rule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7-4a1 1 0 11-2 0 1 1 0 012 0zM9 9a1 1 0 000 2v3a1 1 0 001 1h1a1 1 0 100-2v-3a1 1 0 00-1-1H9z" clip-rule="evenodd" />
                                     </svg>
-                                    <span class="tooltip-text">Your current cost for electricity per kilowatt-hour (kWh). Check your utility bill for the 'supply' and 'delivery' charges combined.</span>
+                                    <span class="tooltip-text">Your current cost for electricity per kilowatt-hour (kWh). Check your utility bill for the 'supply' and 'delivery' charges combined. This is ignored if TOU rates are used.</span>
                                 </div>
                             </label>
                             <div class="input-with-unit unit-left">
@@ -362,7 +442,12 @@
             <ul>
                 <li><strong>Peak kW & Amps:</strong> The tool first calculates the maximum power (in kilowatts) each new electric appliance could draw. This is then converted to Amperes (Amps) using the formula <code>Amps = (kW × 1000) / Volts</code>.</li>
                 <li><strong>Sum of Peak Loads:</strong> This is a simple, worst-case sum of the peak amps of all new appliances. It's an unlikely scenario but useful for initial assessment.</li>
-                <li><strong>Estimated Diversified Peak Load:</strong> This is a more realistic estimate. It's highly improbable that you'll run your heat pump, water heater, range, and dryer all at maximum power at the exact same time. The tool applies a standard "diversity factor" (100% of the largest load + a fraction of the others) to calculate a more practical peak load. <strong>This diversified value is used for the final panel upgrade recommendation.</strong></li>
+                <li><strong>Estimated Diversified Peak Load:</strong> This is a more realistic estimate of demand. It's highly improbable that all appliances will run at maximum power simultaneously. The tool applies a standard "diversity factor" based on the facility type to calculate a practical peak load. <strong>This diversified value is used for the final panel upgrade recommendation.</strong>
+                    <ul style="margin-top: 0.5rem;">
+                        <li><strong>Residential:</strong> The calculation is based on a simplified interpretation of National Electrical Code (NEC) principles for whole-house calculations. It takes 100% of the largest load (typically the heat pump) and adds 50% of the sum of all other new loads. This reflects that while the primary heating/cooling system may run at full power, other appliances like water heaters, ranges, and dryers cycle on and off and are used intermittently.</li>
+                        <li><strong>Commercial:</strong> The calculation uses a common industry standard for general lighting and receptacle loads. It takes 100% of the first 80 Amps of the new load and adds 75% of the remaining load. This method provides a conservative estimate for facilities where multiple pieces of equipment may be in use at once.</li>
+                    </ul>
+                </li>
                 <li><strong>Panel & Breaker Status:</strong> The tool compares the new diversified load plus an assumed existing load against 80% of your panel's total capacity (a safety margin required by electrical code). It also checks if you have enough breaker spaces. Based on this, it recommends if your panel is sufficient, if a smaller sub-panel is needed, or if a full main panel upgrade is required.</li>
             </ul>
 
