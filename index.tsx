@@ -205,7 +205,11 @@ const FACILITY_APPLIANCE_MAP: Record<FacilityType, string[]> = {
 
 const BTU_PER_THERM = 100000;
 const BTU_TO_KW = 0.000293071;
-const PANEL_SIZES = [100, 125, 150, 200, 400];
+const PANEL_SIZES_BY_FACILITY: Record<'Residential' | 'Small Commercial' | 'Large Commercial', number[]> = {
+    'Residential': [100, 200, 400],
+    'Small Commercial': [200, 400, 600, 800],
+    'Large Commercial': [1000, 2000, 2500, 3000, 4000],
+};
 const LIFETIME_YEARS = 15;
 const COLD_CLIMATE_COP_PENALTY = 0.85; // 15% reduction for MA winter performance
 const COP_LOOKUP: Record<ApplianceCategory, Record<EfficiencyTier, number>> = {
@@ -617,7 +621,26 @@ function calculateAnalysis(includedAppliances: Appliance[], currentState: State)
     let panelStatus: PlanningAnalysis['panelStatus'] = 'Not Required';
     if (totalCalculatedLoad > panelCapacity) {
         const requiredPanelSize = totalCalculatedLoad / 0.8;
-        const recommendedPanel = PANEL_SIZES.find(size => size >= requiredPanelSize) || PANEL_SIZES.slice(-1)[0];
+        
+        let availableSizes: number[];
+        switch (currentState.facilityType) {
+            case 'Residential':
+                availableSizes = PANEL_SIZES_BY_FACILITY['Residential'];
+                break;
+            case 'Small Commercial':
+            case 'Restaurant':
+                availableSizes = PANEL_SIZES_BY_FACILITY['Small Commercial'];
+                break;
+            case 'Large Commercial':
+            case 'Industrial':
+            case 'Medical':
+            case 'Nursing Home':
+            default:
+                availableSizes = PANEL_SIZES_BY_FACILITY['Large Commercial'];
+                break;
+        }
+
+        const recommendedPanel = availableSizes.find(size => size >= requiredPanelSize) || availableSizes.slice(-1)[0];
         panelStatus = `Upgrade to ${recommendedPanel}A Recommended`;
     }
 
