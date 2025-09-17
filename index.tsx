@@ -88,6 +88,7 @@ interface PlanningAnalysis {
 interface CostItem {
     name: string;
     low: number;
+    medium: number;
     high: number;
 }
 
@@ -101,9 +102,11 @@ interface CostAnalysis {
     electricalCosts: CostItem[];
     rebates: RebateItem[];
     totalLow: number;
+    totalMedium: number;
     totalHigh: number;
     totalRebates: number;
     netLow: number;
+    netMedium: number;
     netHigh: number;
 }
 
@@ -138,7 +141,9 @@ interface LifetimeAnalysis {
     totalElecCost15yr: number;
     totalSavings15yr: number;
     cumulativeGasCosts: number[];
-    cumulativeElecCosts: number[];
+    cumulativeElecCostsLow: number[];
+    cumulativeElecCostsMedium: number[];
+    cumulativeElecCostsHigh: number[];
     totalHighRiskSavings15yr: number;
     cumulativeHighRiskGasCosts: number[];
     annualGasCosts: number[];
@@ -294,20 +299,20 @@ let defaultInputs = {
         'Panel Upgrade': 600, // IRA 25C Tax Credit
     } as Record<string, number>,
     EQUIPMENT_COSTS: {
-        'Furnace': { 'Standard': [4500, 7000], 'High': [7000, 10500], 'Premium': [10500, 16000] },
-        'Boiler': { 'Standard': [4500, 7000], 'High': [7000, 10500], 'Premium': [10500, 16000] },
-        'Water Heater': { 'Standard': [2300, 3500], 'High': [3500, 4600], 'Premium': [4600, 5800] },
-        'Range': { 'Standard': [1200, 2100], 'High': [2100, 3500], 'Premium': [3500, 5800] },
-        'Dryer': { 'Standard': [900, 1400], 'High': [1400, 2100], 'Premium': [2100, 2900] },
-        'Space Heater': { 'Standard': [2300, 3500], 'High': [3500, 5200], 'Premium': [5200, 7000] },
+        'Furnace': { 'Standard': [4500, 5750, 7000], 'High': [7000, 8750, 10500], 'Premium': [10500, 13250, 16000] },
+        'Boiler': { 'Standard': [4500, 5750, 7000], 'High': [7000, 8750, 10500], 'Premium': [10500, 13250, 16000] },
+        'Water Heater': { 'Standard': [2300, 2900, 3500], 'High': [3500, 4050, 4600], 'Premium': [4600, 5200, 5800] },
+        'Range': { 'Standard': [1200, 1650, 2100], 'High': [2100, 2800, 3500], 'Premium': [3500, 4650, 5800] },
+        'Dryer': { 'Standard': [900, 1150, 1400], 'High': [1400, 1750, 2100], 'Premium': [2100, 2500, 2900] },
+        'Space Heater': { 'Standard': [2300, 2900, 3500], 'High': [3500, 4350, 5200], 'Premium': [5200, 6100, 7000] },
     } as Record<ApplianceCategory, Record<EfficiencyTier, number[]>>,
     INSTALLATION_COSTS: {
-        'Furnace': [7500, 15000],
-        'Boiler': [7500, 15000],
-        'Water Heater': [1800, 3500],
-        'Range': [500, 1000],
-        'Dryer': [500, 1000],
-        'Space Heater': [1800, 3200],
+        'Furnace': [7500, 11250, 15000],
+        'Boiler': [7500, 11250, 15000],
+        'Water Heater': [1800, 2650, 3500],
+        'Range': [500, 750, 1000],
+        'Dryer': [500, 750, 1000],
+        'Space Heater': [1800, 2500, 3200],
     } as Record<ApplianceCategory, number[]>,
     GAS_APPLIANCE_MAINTENANCE_COSTS: {
         'Furnace': 125, 'Boiler': 200, 'Water Heater': 75, 'Space Heater': 125, 'Range': 20, 'Dryer': 20,
@@ -316,21 +321,21 @@ let defaultInputs = {
         'Furnace': 125, 'Boiler': 125, 'Water Heater': 60, 'Space Heater': 125, 'Range': 10, 'Dryer': 50,
     } as Record<ApplianceCategory, number>,
     DISTRIBUTION_SYSTEM_COSTS: {
-        'Ductwork Modification': [750, 2500], // For furnace -> central HP
+        'Ductwork Modification': [750, 1625, 2500],
     } as Record<string, number[]>,
     DUCTLESS_MINI_SPLIT_COSTS: {
-        base: [5000, 8500], // Cost for outdoor unit + first indoor head
-        perAdditionalZone: [1800, 3000], // Cost for each extra indoor head
+        base: [5000, 6750, 8500],
+        perAdditionalZone: [1800, 2400, 3000],
     } as Record<string, number[]>,
     DECOMMISSIONING_COSTS: {
-        'Furnace': [300, 600], 'Boiler': [300, 600], 'Water Heater': [180, 350],
-        'Range': [120, 240], 'Dryer': [0, 0], 'Space Heater': [50, 100],
+        'Furnace': [300, 450, 600], 'Boiler': [300, 450, 600], 'Water Heater': [180, 265, 350],
+        'Range': [120, 180, 240], 'Dryer': [0, 0, 0], 'Space Heater': [50, 75, 100],
     } as Record<ApplianceCategory, number[]>,
     ELECTRICAL_UPGRADE_COSTS: {
-        'Permitting & Fees': [250, 750], 'New Circuit': [700, 1300], 'EV Charger Equipment': [500, 800],
-        'EV Charger Circuit': [1000, 1800], 'Sub-panel': [1800, 3000], 'Panel Upgrade to 125A': [2500, 4200],
-        'Panel Upgrade to 150A': [3000, 5000], 'Panel Upgrade to 200A': [3800, 6000],
-        'Panel Upgrade to 400A': [6000, 10000], 'Supplemental Heater': [250, 500]
+        'Permitting & Fees': [250, 500, 750], 'New Circuit': [700, 1000, 1300], 'EV Charger Equipment': [500, 650, 800],
+        'EV Charger Circuit': [1000, 1400, 1800], 'Sub-panel': [1800, 2400, 3000], 'Panel Upgrade to 125A': [2500, 3350, 4200],
+        'Panel Upgrade to 150A': [3000, 4000, 5000], 'Panel Upgrade to 200A': [3800, 4900, 6000],
+        'Panel Upgrade to 400A': [6000, 8000, 10000], 'Supplemental Heater': [250, 375, 500]
     } as Record<string, number[]>,
 };
 
@@ -667,7 +672,7 @@ function calculateRebates(analysis: PlanningAnalysis, includedAppliances: Applia
 
 function calculateCostAnalysis(analysis: PlanningAnalysis, includedAppliances: Appliance[], state: State): CostAnalysis {
     const applianceCosts = new Map<string, CostItem[]>();
-    let totalLow = 0, totalHigh = 0;
+    let totalLow = 0, totalMedium = 0, totalHigh = 0;
 
     const applianceRecs = analysis.recommendations.filter(r => !r.id.startsWith('ev-'));
 
@@ -677,30 +682,31 @@ function calculateCostAnalysis(analysis: PlanningAnalysis, includedAppliances: A
         const category = definition.category;
         const costs: CostItem[] = [];
 
-        const [equipLow, equipHigh] = defaultInputs.EQUIPMENT_COSTS[category][state.efficiencyTier];
-        costs.push({ name: 'Equipment', low: equipLow, high: equipHigh });
+        const [equipLow, equipMed, equipHigh] = defaultInputs.EQUIPMENT_COSTS[category][state.efficiencyTier];
+        costs.push({ name: 'Equipment', low: equipLow, medium: equipMed, high: equipHigh });
 
-        const [installLow, installHigh] = defaultInputs.INSTALLATION_COSTS[category];
-        costs.push({ name: 'Installation & Materials', low: installLow, high: installHigh });
+        const [installLow, installMed, installHigh] = defaultInputs.INSTALLATION_COSTS[category];
+        costs.push({ name: 'Installation & Materials', low: installLow, medium: installMed, high: installHigh });
 
-        const [decomLow, decomHigh] = defaultInputs.DECOMMISSIONING_COSTS[category];
+        const [decomLow, decomMed, decomHigh] = defaultInputs.DECOMMISSIONING_COSTS[category];
         if (decomHigh > 0) {
-            costs.push({ name: 'Gas Decommissioning', low: decomLow, high: decomHigh });
+            costs.push({ name: 'Gas Decommissioning', low: decomLow, medium: decomMed, high: decomHigh });
         }
 
         // Add costs for heat distribution system based on original appliance
         if (category === 'Furnace') {
-            const [low, high] = defaultInputs.DISTRIBUTION_SYSTEM_COSTS['Ductwork Modification'];
-            costs.push({ name: 'Ductwork Modification', low, high });
+            const [low, medium, high] = defaultInputs.DISTRIBUTION_SYSTEM_COSTS['Ductwork Modification'];
+            costs.push({ name: 'Ductwork Modification', low, medium, high });
         } else if (category === 'Boiler') {
             const zones = Math.max(1, appliance.zones || 1); // Ensure at least 1 zone
-            const [baseLow, baseHigh] = defaultInputs.DUCTLESS_MINI_SPLIT_COSTS.base;
-            const [perZoneLow, perZoneHigh] = defaultInputs.DUCTLESS_MINI_SPLIT_COSTS.perAdditionalZone;
+            const [baseLow, baseMed, baseHigh] = defaultInputs.DUCTLESS_MINI_SPLIT_COSTS.base;
+            const [perZoneLow, perZoneMed, perZoneHigh] = defaultInputs.DUCTLESS_MINI_SPLIT_COSTS.perAdditionalZone;
         
             const lowCost = baseLow + Math.max(0, zones - 1) * perZoneLow;
+            const medCost = baseMed + Math.max(0, zones - 1) * perZoneMed;
             const highCost = baseHigh + Math.max(0, zones - 1) * perZoneHigh;
         
-            costs.push({ name: `Ductless Mini-Split System (${zones} zones)`, low: lowCost, high: highCost });
+            costs.push({ name: `Ductless Mini-Split System (${zones} zones)`, low: lowCost, medium: medCost, high: highCost });
         }
 
         applianceCosts.set(rec.id, costs);
@@ -712,29 +718,29 @@ function calculateCostAnalysis(analysis: PlanningAnalysis, includedAppliances: A
     const evChargerCount = analysis.recommendations.filter(r => r.id.startsWith('ev-')).length;
     if (evChargerCount > 0) {
         // Equipment hardware cost
-        const [equipLow, equipHigh] = defaultInputs.ELECTRICAL_UPGRADE_COSTS['EV Charger Equipment'];
-        electricalCosts.push({ name: `EV Charging Station(s) (${evChargerCount})`, low: equipLow * evChargerCount, high: equipHigh * evChargerCount });
+        const [equipLow, equipMed, equipHigh] = defaultInputs.ELECTRICAL_UPGRADE_COSTS['EV Charger Equipment'];
+        electricalCosts.push({ name: `EV Charging Station(s) (${evChargerCount})`, low: equipLow * evChargerCount, medium: equipMed * evChargerCount, high: equipHigh * evChargerCount });
         // Circuit installation cost
-        const [circuitLow, circuitHigh] = defaultInputs.ELECTRICAL_UPGRADE_COSTS['EV Charger Circuit'];
-        electricalCosts.push({ name: `EV Charger Circuit(s) (${evChargerCount})`, low: circuitLow * evChargerCount, high: circuitHigh * evChargerCount });
+        const [circuitLow, circuitMed, circuitHigh] = defaultInputs.ELECTRICAL_UPGRADE_COSTS['EV Charger Circuit'];
+        electricalCosts.push({ name: `EV Charger Circuit(s) (${evChargerCount})`, low: circuitLow * evChargerCount, medium: circuitMed * evChargerCount, high: circuitHigh * evChargerCount });
     }
 
     // Add panel/sub-panel costs
     if (analysis.panelStatus.startsWith('Upgrade')) {
         const size = analysis.panelStatus.match(/\d+/)?.[0];
         const key = `Panel Upgrade to ${size}A` as keyof typeof defaultInputs.ELECTRICAL_UPGRADE_COSTS;
-        const [low, high] = defaultInputs.ELECTRICAL_UPGRADE_COSTS[key];
-        electricalCosts.push({ name: 'Main Panel Upgrade', low, high });
+        const [low, medium, high] = defaultInputs.ELECTRICAL_UPGRADE_COSTS[key];
+        electricalCosts.push({ name: 'Main Panel Upgrade', low, medium, high });
     } else if (analysis.breakerStatus === 'Sub-panel Recommended') {
-        const [low, high] = defaultInputs.ELECTRICAL_UPGRADE_COSTS['Sub-panel'];
-        electricalCosts.push({ name: 'Sub-panel Installation', low, high });
+        const [low, medium, high] = defaultInputs.ELECTRICAL_UPGRADE_COSTS['Sub-panel'];
+        electricalCosts.push({ name: 'Sub-panel Installation', low, medium, high });
     }
 
     // Add circuit costs for appliances
     const numApplianceCircuits = applianceRecs.length;
     if (numApplianceCircuits > 0) {
-        const [low, high] = defaultInputs.ELECTRICAL_UPGRADE_COSTS['New Circuit'];
-        electricalCosts.push({ name: `${numApplianceCircuits} New Appliance Circuit(s)`, low: low * numApplianceCircuits, high: high * numApplianceCircuits });
+        const [low, medium, high] = defaultInputs.ELECTRICAL_UPGRADE_COSTS['New Circuit'];
+        electricalCosts.push({ name: `${numApplianceCircuits} New Appliance Circuit(s)`, low: low * numApplianceCircuits, medium: medium * numApplianceCircuits, high: high * numApplianceCircuits });
     }
     
     // Add supplemental heaters if a boiler is being replaced
@@ -742,34 +748,36 @@ function calculateCostAnalysis(analysis: PlanningAnalysis, includedAppliances: A
     const numHeaters = boilerAppliances.reduce((sum, app) => sum + (app.supplementalHeaters || 0), 0);
     
     if (numHeaters > 0) {
-        const [low, high] = defaultInputs.ELECTRICAL_UPGRADE_COSTS['Supplemental Heater'];
+        const [low, medium, high] = defaultInputs.ELECTRICAL_UPGRADE_COSTS['Supplemental Heater'];
         electricalCosts.push({
             name: `Supplemental Heaters (${numHeaters} units)`,
             low: low * numHeaters,
+            medium: medium * numHeaters,
             high: high * numHeaters
         });
     }
 
     // Add permitting costs if any work is being done
     if (applianceRecs.length > 0 || evChargerCount > 0) {
-        const [low, high] = defaultInputs.ELECTRICAL_UPGRADE_COSTS['Permitting & Fees'];
-        electricalCosts.push({ name: 'Permitting & Fees', low, high });
+        const [low, medium, high] = defaultInputs.ELECTRICAL_UPGRADE_COSTS['Permitting & Fees'];
+        electricalCosts.push({ name: 'Permitting & Fees', low, medium, high });
     }
 
     // Sum totals
     for(const costs of applianceCosts.values()) {
-        costs.forEach(c => { totalLow += c.low; totalHigh += c.high; });
+        costs.forEach(c => { totalLow += c.low; totalMedium += c.medium; totalHigh += c.high; });
     }
-    electricalCosts.forEach(c => { totalLow += c.low; totalHigh += c.high; });
+    electricalCosts.forEach(c => { totalLow += c.low; totalMedium += c.medium; totalHigh += c.high; });
 
     // Calculate rebates
     const rebates = calculateRebates(analysis, includedAppliances, state);
     const totalRebates = rebates.reduce((sum, r) => sum + r.amount, 0);
 
     const netLow = Math.max(0, totalLow - totalRebates);
+    const netMedium = Math.max(0, totalMedium - totalRebates);
     const netHigh = Math.max(0, totalHigh - totalRebates);
 
-    return { applianceCosts, electricalCosts, rebates, totalLow, totalHigh, totalRebates, netLow, netHigh };
+    return { applianceCosts, electricalCosts, rebates, totalLow, totalMedium, totalHigh, totalRebates, netLow, netMedium, netHigh };
 }
 
 /**
@@ -882,9 +890,8 @@ function calculateFinancialAnalysis(costAnalysis: CostAnalysis, includedApplianc
     const netAnnualSavings = totalCurrentAnnualCost - totalProjectedAnnualCost;
 
     let simplePaybackYears: number | null = null;
-    if (netAnnualSavings > 0 && costAnalysis.netLow > 0) {
-        const avgNetCost = (costAnalysis.netLow + costAnalysis.netHigh) / 2;
-        simplePaybackYears = avgNetCost / netAnnualSavings;
+    if (netAnnualSavings > 0 && costAnalysis.netMedium > 0) {
+        simplePaybackYears = costAnalysis.netMedium / netAnnualSavings;
     }
 
     return {
@@ -943,7 +950,9 @@ function calculateEnvironmentalImpact(includedAppliances: Appliance[], state: St
 function calculateLifetimeAnalysis(financialAnalysis: FinancialAnalysis, costAnalysis: CostAnalysis, state: State): LifetimeAnalysis {
     const cumulativeGasCosts: number[] = [0];
     const cumulativeHighRiskGasCosts: number[] = [0];
-    const cumulativeElecCosts: number[] = [(costAnalysis.netLow + costAnalysis.netHigh) / 2];
+    const cumulativeElecCostsLow: number[] = [costAnalysis.netLow];
+    const cumulativeElecCostsMedium: number[] = [costAnalysis.netMedium];
+    const cumulativeElecCostsHigh: number[] = [costAnalysis.netHigh];
     const annualGasCosts: number[] = [];
     const annualElecCosts: number[] = [];
 
@@ -963,7 +972,9 @@ function calculateLifetimeAnalysis(financialAnalysis: FinancialAnalysis, costAna
 
         cumulativeGasCosts.push(cumulativeGasCosts[i] + currentYearTotalGasCost);
         cumulativeHighRiskGasCosts.push(cumulativeHighRiskGasCosts[i] + currentYearHighRiskTotalGasCost);
-        cumulativeElecCosts.push(cumulativeElecCosts[i] + currentYearTotalElecCost);
+        cumulativeElecCostsLow.push(cumulativeElecCostsLow[i] + currentYearTotalElecCost);
+        cumulativeElecCostsMedium.push(cumulativeElecCostsMedium[i] + currentYearTotalElecCost);
+        cumulativeElecCostsHigh.push(cumulativeElecCostsHigh[i] + currentYearTotalElecCost);
         
         currentYearTotalGasCost *= gasEscalationRate;
         currentYearHighRiskTotalGasCost *= highRiskGasEscalationRate;
@@ -971,7 +982,7 @@ function calculateLifetimeAnalysis(financialAnalysis: FinancialAnalysis, costAna
     }
     
     // Total electric cost for savings calc is operating cost, not including upfront.
-    const totalElecOperatingCost15yr = cumulativeElecCosts[LIFETIME_YEARS] - cumulativeElecCosts[0];
+    const totalElecOperatingCost15yr = cumulativeElecCostsMedium[LIFETIME_YEARS] - cumulativeElecCostsMedium[0];
 
     const totalGasCost15yr = cumulativeGasCosts[LIFETIME_YEARS];
     const totalSavings15yr = totalGasCost15yr - totalElecOperatingCost15yr;
@@ -985,7 +996,9 @@ function calculateLifetimeAnalysis(financialAnalysis: FinancialAnalysis, costAna
         totalElecCost15yr: totalElecOperatingCost15yr, 
         totalSavings15yr, 
         cumulativeGasCosts, 
-        cumulativeElecCosts,
+        cumulativeElecCostsLow, 
+        cumulativeElecCostsMedium,
+        cumulativeElecCostsHigh,
         totalHighRiskSavings15yr,
         cumulativeHighRiskGasCosts,
         annualGasCosts,
@@ -1094,28 +1107,49 @@ function createLifetimeChart(canvasId: string, analysis: LifetimeAnalysis, chart
             labels: labels,
             datasets: [
                 {
-                    label: 'Cumulative Electric System Cost (incl. install)',
-                    data: analysis.cumulativeElecCosts,
+                    label: 'Electric System Cost (Likely)',
+                    data: analysis.cumulativeElecCostsMedium,
                     borderColor: 'rgb(0, 95, 204)',
                     backgroundColor: 'rgba(0, 95, 204, 0.1)',
-                    fill: true,
+                    fill: false,
                     tension: 0.1,
+                    borderWidth: 2,
                 },
                 {
-                    label: 'Cumulative Gas System Operating Cost',
+                    label: 'Electric System Cost (High Estimate)',
+                    data: analysis.cumulativeElecCostsHigh,
+                    borderColor: 'rgba(0, 95, 204, 0.4)',
+                    backgroundColor: 'rgba(0, 95, 204, 0.1)',
+                    fill: false,
+                    tension: 0.1,
+                    borderDash: [5, 5],
+                    pointRadius: 0,
+                },
+                 {
+                    label: 'Electric System Cost (Low Estimate)',
+                    data: analysis.cumulativeElecCostsLow,
+                    borderColor: 'rgba(0, 95, 204, 0.4)',
+                    backgroundColor: 'rgba(0, 95, 204, 0.1)',
+                    fill: '-1',
+                    tension: 0.1,
+                    borderDash: [5, 5],
+                    pointRadius: 0,
+                },
+                {
+                    label: 'Gas System Operating Cost',
                     data: analysis.cumulativeGasCosts,
                     borderColor: 'rgb(220, 53, 69)',
                     backgroundColor: 'rgba(220, 53, 69, 0.1)',
-                    fill: true,
+                    fill: false,
                     tension: 0.1,
                 },
                 {
-                    label: 'Cumulative Gas System Cost (High-Risk)',
+                    label: 'Gas System Cost (High-Risk)',
                     data: analysis.cumulativeHighRiskGasCosts,
                     borderColor: 'rgb(220, 53, 69)',
                     borderDash: [5, 5],
                     backgroundColor: 'rgba(220, 53, 69, 0.05)',
-                    fill: true,
+                    fill: false,
                     tension: 0.1,
                 }
             ]
@@ -1124,7 +1158,9 @@ function createLifetimeChart(canvasId: string, analysis: LifetimeAnalysis, chart
             responsive: true,
             maintainAspectRatio: false,
             plugins: {
-                tooltip: {
+                 tooltip: {
+                    mode: 'index',
+                    intersect: false,
                     callbacks: {
                         label: function(context: any) {
                             let label = context.dataset.label || '';
@@ -1300,7 +1336,7 @@ function createCostBreakdownChart(canvasId: string, costAnalysis: CostAnalysis, 
 
     costAnalysis.applianceCosts.forEach((items) => {
         items.forEach(item => {
-            const avgCost = (item.low + item.high) / 2;
+            const avgCost = item.medium;
             if (item.name === 'Equipment') {
                 costCategories['Equipment'] += avgCost;
             } else if (item.name === 'Installation & Materials') {
@@ -1314,7 +1350,7 @@ function createCostBreakdownChart(canvasId: string, costAnalysis: CostAnalysis, 
     });
 
     costAnalysis.electricalCosts.forEach(item => {
-        costCategories['Electrical Upgrades'] += (item.low + item.high) / 2;
+        costCategories['Electrical Upgrades'] += item.medium;
     });
 
     const labels = Object.keys(costCategories).filter(key => costCategories[key] > 0);
@@ -1473,7 +1509,7 @@ function createGhgSourceChart(canvasId: string, environmentalImpact: Environment
 
 function renderReport(planningAnalysis: PlanningAnalysis, costAnalysis: CostAnalysis, financialAnalysis: FinancialAnalysis, environmentalImpact: EnvironmentalImpact, lifetimeAnalysis: LifetimeAnalysis) {
     // Summary
-    summaryTotalCostEl.textContent = `${formatCurrency(costAnalysis.netLow)} - ${formatCurrency(costAnalysis.netHigh)}`;
+    summaryTotalCostEl.textContent = `${formatCurrency(costAnalysis.netMedium)} (Range: ${formatCurrency(costAnalysis.netLow)} - ${formatCurrency(costAnalysis.netHigh)})`;
     summaryTotalRebatesEl.textContent = formatCurrency(costAnalysis.totalRebates);
     summaryAnnualSavingsEl.textContent = formatCurrency(financialAnalysis.netAnnualSavings, true);
     summaryAnnualSavingsEl.className = 'summary-metric-value';
@@ -1582,7 +1618,7 @@ function renderReport(planningAnalysis: PlanningAnalysis, costAnalysis: CostAnal
     lifetimeSection.innerHTML = `<h3 class="report-section-title">15-Year Financial Outlook</h3>`;
     lifetimeSection.innerHTML += `
         <p>
-            Assumes a ${state.gasPriceEscalation}% annual increase in gas prices and a ${state.electricityPriceEscalation}% increase in electricity prices.
+            Assumes a ${state.gasPriceEscalation}% annual increase in gas prices and a ${state.electricityPriceEscalation}% increase in electricity prices. This chart shows the total cost of ownership, including upfront costs and ongoing operating expenses, with a range for cost uncertainty.
         </p>
         <div class="chart-container">
             <canvas id="lifetime-chart"></canvas>
@@ -1886,6 +1922,7 @@ function renderFullReport(planningAnalysis: PlanningAnalysis, costAnalysis: Cost
                     <td rowspan="${items.length}" class="category-cell"><strong>${category}</strong></td>
                     <td>${items[0].name}</td>
                     <td style="text-align: right;">${formatCurrency(items[0].low)}</td>
+                    <td style="text-align: right;">${formatCurrency(items[0].medium)}</td>
                     <td style="text-align: right;">${formatCurrency(items[0].high)}</td>
                 </tr>
             `;
@@ -1895,6 +1932,7 @@ function renderFullReport(planningAnalysis: PlanningAnalysis, costAnalysis: Cost
                     <tr>
                         <td>${items[i].name}</td>
                         <td style="text-align: right;">${formatCurrency(items[i].low)}</td>
+                        <td style="text-align: right;">${formatCurrency(items[i].medium)}</td>
                         <td style="text-align: right;">${formatCurrency(items[i].high)}</td>
                     </tr>
                 `;
@@ -1906,6 +1944,7 @@ function renderFullReport(planningAnalysis: PlanningAnalysis, costAnalysis: Cost
         <tr class="subtotal-row">
             <td colspan="2"><strong>Subtotal</strong></td>
             <td style="text-align: right;"><strong>${formatCurrency(costAnalysis.totalLow)}</strong></td>
+            <td style="text-align: right;"><strong>${formatCurrency(costAnalysis.totalMedium)}</strong></td>
             <td style="text-align: right;"><strong>${formatCurrency(costAnalysis.totalHigh)}</strong></td>
         </tr>
     `;
@@ -1918,12 +1957,14 @@ function renderFullReport(planningAnalysis: PlanningAnalysis, costAnalysis: Cost
                 <td>${items[0].name}</td>
                 <td style="text-align: right; color: var(--success-color);">(${formatCurrency(items[0].amount)})</td>
                 <td style="text-align: right; color: var(--success-color);">(${formatCurrency(items[0].amount)})</td>
+                <td style="text-align: right; color: var(--success-color);">(${formatCurrency(items[0].amount)})</td>
             </tr>
         `;
         for (let i = 1; i < items.length; i++) {
             costTableFooterHtml += `
                 <tr>
                     <td>${items[i].name}</td>
+                    <td style="text-align: right; color: var(--success-color);">(${formatCurrency(items[i].amount)})</td>
                     <td style="text-align: right; color: var(--success-color);">(${formatCurrency(items[i].amount)})</td>
                     <td style="text-align: right; color: var(--success-color);">(${formatCurrency(items[i].amount)})</td>
                 </tr>
@@ -1935,6 +1976,7 @@ function renderFullReport(planningAnalysis: PlanningAnalysis, costAnalysis: Cost
         <tr class="total-row">
             <td colspan="2"><strong>Net Project Cost</strong></td>
             <td style="text-align: right;"><strong>${formatCurrency(costAnalysis.netLow)}</strong></td>
+            <td style="text-align: right;"><strong>${formatCurrency(costAnalysis.netMedium)}</strong></td>
             <td style="text-align: right;"><strong>${formatCurrency(costAnalysis.netHigh)}</strong></td>
         </tr>
     `;
@@ -1958,6 +2000,7 @@ function renderFullReport(planningAnalysis: PlanningAnalysis, costAnalysis: Cost
                     <th>Category</th>
                     <th>Item</th>
                     <th style="text-align: right;">Low Estimate</th>
+                    <th style="text-align: right;">Medium Estimate</th>
                     <th style="text-align: right;">High Estimate</th>
                 </tr>
             </thead>
@@ -1968,7 +2011,7 @@ function renderFullReport(planningAnalysis: PlanningAnalysis, costAnalysis: Cost
                 ${costTableFooterHtml}
             </tfoot>
         </table>
-        <h4 class="full-report-subsection-title">Project Gross Cost Breakdown</h4>
+        <h4 class="full-report-subsection-title">Project Gross Cost Breakdown (Based on Medium Estimate)</h4>
         <div class="chart-container" style="height: 350px; max-width: 600px; margin: 1.5rem auto 0 auto;">
             <canvas id="full-report-cost-breakdown-chart"></canvas>
         </div>
@@ -2124,7 +2167,7 @@ function renderFullReport(planningAnalysis: PlanningAnalysis, costAnalysis: Cost
         <div class="full-report-section">
             <h3 class="full-report-section-title">9. 15-Year Financial Outlook (Total Cost of Ownership)</h3>
              <p>
-                This chart projects the cumulative cost of ownership over 15 years, including upfront installation costs and ongoing, escalating operating costs (energy and maintenance).
+                This chart projects the cumulative cost of ownership over 15 years, including upfront installation costs and ongoing, escalating operating costs (energy and maintenance). It shows a likely cost scenario along with a range representing low and high cost estimates to capture uncertainty.
             </p>
             <div class="chart-container" style="height: 400px;">
                 <canvas id="full-report-lifetime-chart"></canvas>
@@ -2217,7 +2260,6 @@ function renderInputTables() {
     };
 
     // Utility Costs
-    // Fix: Cast to HTMLTableSectionElement to access table-specific properties like 'rows'.
     const utilityTbody = document.getElementById('defaults-utility-tbody') as HTMLTableSectionElement;
     utilityTbody.innerHTML = `
         <tr><td>Gas Price ($/therm)</td><td></td></tr>
@@ -2235,7 +2277,6 @@ function renderInputTables() {
     utilityTbody.rows[5].cells[1].appendChild(createInput(state.gridDecarbonizationRate, 'number', { key: 'gridDecarbonizationRate' }));
 
     // Equipment Costs
-    // Fix: Cast to HTMLTableSectionElement to access table-specific properties like 'insertRow'.
     const equipmentTbody = document.getElementById('defaults-equipment-tbody') as HTMLTableSectionElement;
     equipmentTbody.innerHTML = '';
     for (const category in defaultInputs.EQUIPMENT_COSTS) {
@@ -2243,61 +2284,61 @@ function renderInputTables() {
         row.insertCell().textContent = category;
         const tiers: EfficiencyTier[] = ['Standard', 'High', 'Premium'];
         tiers.forEach(tier => {
-            const [low, high] = defaultInputs.EQUIPMENT_COSTS[category as ApplianceCategory][tier];
+            const [low, medium, high] = defaultInputs.EQUIPMENT_COSTS[category as ApplianceCategory][tier];
             row.insertCell().appendChild(createInput(low, 'number', { category, tier, range: 'low' }));
+            row.insertCell().appendChild(createInput(medium, 'number', { category, tier, range: 'medium' }));
             row.insertCell().appendChild(createInput(high, 'number', { category, tier, range: 'high' }));
         });
     }
     
     // Installation Costs
-    // Fix: Cast to HTMLTableSectionElement to access table-specific properties like 'insertRow'.
     const installationTbody = document.getElementById('defaults-installation-tbody') as HTMLTableSectionElement;
     installationTbody.innerHTML = '';
     for (const category in defaultInputs.INSTALLATION_COSTS) {
         const row = installationTbody.insertRow();
         row.insertCell().textContent = category;
-        const [low, high] = defaultInputs.INSTALLATION_COSTS[category as ApplianceCategory];
+        const [low, medium, high] = defaultInputs.INSTALLATION_COSTS[category as ApplianceCategory];
         row.insertCell().appendChild(createInput(low, 'number', { category, range: 'low' }));
+        row.insertCell().appendChild(createInput(medium, 'number', { category, range: 'medium' }));
         row.insertCell().appendChild(createInput(high, 'number', { category, range: 'high' }));
     }
 
     // Distribution Costs
-    // Fix: Cast to HTMLTableSectionElement to access table-specific properties like 'insertRow'.
     const distributionTbody = document.getElementById('defaults-distribution-tbody') as HTMLTableSectionElement;
     distributionTbody.innerHTML = '';
-    Object.entries({ ...defaultInputs.DISTRIBUTION_SYSTEM_COSTS, ...defaultInputs.DUCTLESS_MINI_SPLIT_COSTS }).forEach(([key, [low, high]]) => {
+    Object.entries({ ...defaultInputs.DISTRIBUTION_SYSTEM_COSTS, ...defaultInputs.DUCTLESS_MINI_SPLIT_COSTS }).forEach(([key, [low, medium, high]]) => {
         const row = distributionTbody.insertRow();
         row.insertCell().textContent = key;
         row.insertCell().appendChild(createInput(low, 'number', { key, range: 'low' }));
+        row.insertCell().appendChild(createInput(medium, 'number', { key, range: 'medium' }));
         row.insertCell().appendChild(createInput(high, 'number', { key, range: 'high' }));
     });
     
     // Decommissioning Costs
-    // Fix: Cast to HTMLTableSectionElement to access table-specific properties like 'insertRow'.
     const decommissioningTbody = document.getElementById('defaults-decommissioning-tbody') as HTMLTableSectionElement;
     decommissioningTbody.innerHTML = '';
     for (const category in defaultInputs.DECOMMISSIONING_COSTS) {
         const row = decommissioningTbody.insertRow();
         row.insertCell().textContent = category;
-        const [low, high] = defaultInputs.DECOMMISSIONING_COSTS[category as ApplianceCategory];
+        const [low, medium, high] = defaultInputs.DECOMMISSIONING_COSTS[category as ApplianceCategory];
         row.insertCell().appendChild(createInput(low, 'number', { category, range: 'low' }));
+        row.insertCell().appendChild(createInput(medium, 'number', { category, range: 'medium' }));
         row.insertCell().appendChild(createInput(high, 'number', { category, range: 'high' }));
     }
 
     // Electrical Costs
-    // Fix: Cast to HTMLTableSectionElement to access table-specific properties like 'insertRow'.
     const electricalTbody = document.getElementById('defaults-electrical-tbody') as HTMLTableSectionElement;
     electricalTbody.innerHTML = '';
     for (const key in defaultInputs.ELECTRICAL_UPGRADE_COSTS) {
         const row = electricalTbody.insertRow();
         row.insertCell().textContent = key;
-        const [low, high] = defaultInputs.ELECTRICAL_UPGRADE_COSTS[key];
+        const [low, medium, high] = defaultInputs.ELECTRICAL_UPGRADE_COSTS[key];
         row.insertCell().appendChild(createInput(low, 'number', { key, range: 'low' }));
+        row.insertCell().appendChild(createInput(medium, 'number', { key, range: 'medium' }));
         row.insertCell().appendChild(createInput(high, 'number', { key, range: 'high' }));
     }
 
     // Incentives
-    // Fix: Cast to HTMLTableSectionElement to access table-specific properties like 'insertRow'.
     const incentivesTbody = document.getElementById('defaults-incentives-tbody') as HTMLTableSectionElement;
     incentivesTbody.innerHTML = '';
     const incentiveKeys = Object.keys(defaultInputs.REGIONAL_DATA.MA.massSaveRebates);
@@ -2700,6 +2741,12 @@ function updateDefaultsFromUI(event: Event) {
     const parentTbody = input.closest('tbody');
     if (!parentTbody) return;
 
+    const updateCostArray = (arr: number[], range: string, value: number) => {
+        if (range === 'low') arr[0] = value;
+        else if (range === 'medium') arr[1] = value;
+        else if (range === 'high') arr[2] = value;
+    };
+
     switch (parentTbody.id) {
         case 'defaults-utility-tbody':
             if (key) (state as any)[key] = value;
@@ -2707,31 +2754,31 @@ function updateDefaultsFromUI(event: Event) {
         case 'defaults-equipment-tbody':
             if (category && tier && range) {
                 const costArray = defaultInputs.EQUIPMENT_COSTS[category as ApplianceCategory][tier as EfficiencyTier];
-                range === 'low' ? costArray[0] = value : costArray[1] = value;
+                updateCostArray(costArray, range, value);
             }
             break;
         case 'defaults-installation-tbody':
              if (category && range) {
                 const costArray = defaultInputs.INSTALLATION_COSTS[category as ApplianceCategory];
-                range === 'low' ? costArray[0] = value : costArray[1] = value;
+                updateCostArray(costArray, range, value);
             }
             break;
         case 'defaults-distribution-tbody':
             if (key && range) {
                 const costArray = (defaultInputs.DISTRIBUTION_SYSTEM_COSTS[key] || defaultInputs.DUCTLESS_MINI_SPLIT_COSTS[key]);
-                range === 'low' ? costArray[0] = value : costArray[1] = value;
+                updateCostArray(costArray, range, value);
             }
             break;
         case 'defaults-decommissioning-tbody':
              if (category && range) {
                 const costArray = defaultInputs.DECOMMISSIONING_COSTS[category as ApplianceCategory];
-                range === 'low' ? costArray[0] = value : costArray[1] = value;
+                updateCostArray(costArray, range, value);
             }
             break;
         case 'defaults-electrical-tbody':
              if (key && range) {
                 const costArray = defaultInputs.ELECTRICAL_UPGRADE_COSTS[key];
-                range === 'low' ? costArray[0] = value : costArray[1] = value;
+                updateCostArray(costArray, range, value);
             }
             break;
         case 'defaults-incentives-tbody':
