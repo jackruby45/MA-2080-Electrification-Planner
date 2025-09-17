@@ -23,7 +23,7 @@ type FacilityType = 'Residential' | 'Small Commercial' | 'Large Commercial' | 'I
 type ClimateZone = 'Zone5'; // Hardcoded to MA Climate Zone 5
 type Region = 'MA'; // Hardcoded to MA region
 type EVChargerType = 'none' | '32A' | '40A' | '48A';
-type EnvironmentalUnit = 'kg' | 'tons' | 'cars' | 'gasoline';
+type EnvironmentalUnit = 'kg' | 'tons' | 'cars' | 'gasoline' | 'miles' | 'oil' | 'trees';
 
 interface Appliance {
   id: string;
@@ -44,6 +44,8 @@ interface State {
   town: string;
   annualHeatingTherms: number;
   annualNonHeatingTherms: number;
+  annualExistingElecKwh: number;
+  existingPeakLoadAmps: number;
   panelAmps: number;
   voltage: number;
   breakerSpaces: number;
@@ -107,6 +109,7 @@ interface CostAnalysis {
 
 interface FinancialAnalysis {
     currentAnnualGasCost: number;
+    currentAnnualElecCost: number;
     currentAnnualMaintenanceCost: number;
     totalCurrentAnnualCost: number;
     projectedAnnualElecCost: number;
@@ -235,6 +238,16 @@ const DEFAULT_USAGE_BY_FACILITY: Record<FacilityType, {heating: number, nonHeati
     'Nursing Home': { heating: 8000, nonHeating: 6000 },
 };
 
+const DEFAULT_EXISTING_ELEC_USAGE_BY_FACILITY: Record<FacilityType, number> = {
+    'Residential': 8000,
+    'Small Commercial': 30000,
+    'Large Commercial': 200000,
+    'Industrial': 800000,
+    'Restaurant': 60000,
+    'Medical': 250000,
+    'Nursing Home': 220000,
+};
+
 const DEFAULT_EV_STATIONS_BY_FACILITY: Record<FacilityType, number> = {
     'Residential': 0, // Not used for residential, but good to be explicit
     'Small Commercial': 2,
@@ -259,84 +272,66 @@ const KG_CO2E_PER_CAR_YEAR = 4600; // Source: EPA, avg passenger vehicle emits 4
 const GHG_CONVERSION_FACTORS = {
     KG_TO_TONS: 0.001,
     KG_CO2_PER_GALLON_GASOLINE: 8.89,
+    KG_CO2E_PER_BARREL_OIL: 430, // Source: EPA
+    KG_CO2E_PER_TREE_10_YEARS: 60, // Source: EPA
 };
 
-const REGIONAL_DATA: Record<Region, { name: string, gasPrice: number, elecPrice: number, co2KgPerKwh: number, massSaveRebates: Record<string, number> }> = {
-    'MA': {
-        name: 'Massachusetts',
-        gasPrice: 1.85,
-        elecPrice: 0.31,
-        co2KgPerKwh: 0.26, // ISO New England
-        massSaveRebates: { 'Heat Pump': 10000, 'HPWH': 1000, 'Panel Upgrade': 1500 }
-    },
-};
-
-const FEDERAL_REBATES: Record<string, number> = {
-    'Heat Pump': 2000, // IRA 25C Tax Credit, capped
-    'HPWH': 2000,      // IRA 25C Tax Credit, capped
-    'Panel Upgrade': 600, // IRA 25C Tax Credit
-};
-
-
-// --- COST DATA (Localized for Massachusetts) ---
-const EQUIPMENT_COSTS: Record<ApplianceCategory, Record<EfficiencyTier, number[]>> = {
-    'Furnace': { 'Standard': [4500, 7000], 'High': [7000, 10500], 'Premium': [10500, 16000] },
-    'Boiler': { 'Standard': [4500, 7000], 'High': [7000, 10500], 'Premium': [10500, 16000] },
-    'Water Heater': { 'Standard': [2300, 3500], 'High': [3500, 4600], 'Premium': [4600, 5800] },
-    'Range': { 'Standard': [1200, 2100], 'High': [2100, 3500], 'Premium': [3500, 5800] },
-    'Dryer': { 'Standard': [900, 1400], 'High': [1400, 2100], 'Premium': [2100, 2900] },
-    'Space Heater': { 'Standard': [2300, 3500], 'High': [3500, 5200], 'Premium': [5200, 7000] },
-};
-const INSTALLATION_COSTS: Record<ApplianceCategory, number[]> = {
-    'Furnace': [7500, 15000],
-    'Boiler': [7500, 15000],
-    'Water Heater': [1800, 3500],
-    'Range': [500, 1000],
-    'Dryer': [500, 1000],
-    'Space Heater': [1800, 3200],
-};
-const GAS_APPLIANCE_MAINTENANCE_COSTS: Record<ApplianceCategory, number> = {
-    'Furnace': 125,
-    'Boiler': 200,
-    'Water Heater': 75,
-    'Space Heater': 125,
-    'Range': 20,
-    'Dryer': 20,
-};
-const ELECTRIC_APPLIANCE_MAINTENANCE_COSTS: Record<ApplianceCategory, number> = {
-    'Furnace': 125,      // Central Heat Pump
-    'Boiler': 125,       // Ductless Mini-Split
-    'Water Heater': 60,  // HPWH
-    'Space Heater': 125, // Ductless Mini-Split
-    'Range': 10,         // Induction
-    'Dryer': 50,         // Heat Pump Dryer
-};
-const DISTRIBUTION_SYSTEM_COSTS = {
-    'Ductwork Modification': [750, 2500], // For furnace -> central HP
-};
-const DUCTLESS_MINI_SPLIT_COSTS = {
-    base: [5000, 8500], // Cost for outdoor unit + first indoor head
-    perAdditionalZone: [1800, 3000], // Cost for each extra indoor head
-};
-const DECOMMISSIONING_COSTS: Record<ApplianceCategory, number[]> = {
-    'Furnace': [300, 600],
-    'Boiler': [300, 600],
-    'Water Heater': [180, 350],
-    'Range': [120, 240],
-    'Dryer': [0, 0], // Usually part of install
-    'Space Heater': [50, 100],
-};
-const ELECTRICAL_UPGRADE_COSTS = {
-    'Permitting & Fees': [250, 750],
-    'New Circuit': [700, 1300],
-    'EV Charger Equipment': [500, 800],
-    'EV Charger Circuit': [1000, 1800],
-    'Sub-panel': [1800, 3000],
-    'Panel Upgrade to 125A': [2500, 4200],
-    'Panel Upgrade to 150A': [3000, 5000],
-    'Panel Upgrade to 200A': [3800, 6000],
-    'Panel Upgrade to 400A': [6000, 10000],
-    'Supplemental Heater': [250, 500] // Per unit, for small rooms like bathrooms
+// --- EDITABLE DEFAULT INPUTS ---
+// This object holds all the cost and projection data that can be edited in the "Input Tables" tab.
+let defaultInputs = {
+    REGIONAL_DATA: {
+        'MA': {
+            name: 'Massachusetts',
+            gasPrice: 1.85,
+            elecPrice: 0.31,
+            co2KgPerKwh: 0.26, // ISO New England
+            massSaveRebates: { 'Heat Pump': 10000, 'HPWH': 1000, 'Panel Upgrade': 1500 }
+        },
+    } as Record<Region, { name: string, gasPrice: number, elecPrice: number, co2KgPerKwh: number, massSaveRebates: Record<string, number> }>,
+    FEDERAL_REBATES: {
+        'Heat Pump': 2000, // IRA 25C Tax Credit, capped
+        'HPWH': 2000,      // IRA 25C Tax Credit, capped
+        'Panel Upgrade': 600, // IRA 25C Tax Credit
+    } as Record<string, number>,
+    EQUIPMENT_COSTS: {
+        'Furnace': { 'Standard': [4500, 7000], 'High': [7000, 10500], 'Premium': [10500, 16000] },
+        'Boiler': { 'Standard': [4500, 7000], 'High': [7000, 10500], 'Premium': [10500, 16000] },
+        'Water Heater': { 'Standard': [2300, 3500], 'High': [3500, 4600], 'Premium': [4600, 5800] },
+        'Range': { 'Standard': [1200, 2100], 'High': [2100, 3500], 'Premium': [3500, 5800] },
+        'Dryer': { 'Standard': [900, 1400], 'High': [1400, 2100], 'Premium': [2100, 2900] },
+        'Space Heater': { 'Standard': [2300, 3500], 'High': [3500, 5200], 'Premium': [5200, 7000] },
+    } as Record<ApplianceCategory, Record<EfficiencyTier, number[]>>,
+    INSTALLATION_COSTS: {
+        'Furnace': [7500, 15000],
+        'Boiler': [7500, 15000],
+        'Water Heater': [1800, 3500],
+        'Range': [500, 1000],
+        'Dryer': [500, 1000],
+        'Space Heater': [1800, 3200],
+    } as Record<ApplianceCategory, number[]>,
+    GAS_APPLIANCE_MAINTENANCE_COSTS: {
+        'Furnace': 125, 'Boiler': 200, 'Water Heater': 75, 'Space Heater': 125, 'Range': 20, 'Dryer': 20,
+    } as Record<ApplianceCategory, number>,
+    ELECTRIC_APPLIANCE_MAINTENANCE_COSTS: {
+        'Furnace': 125, 'Boiler': 125, 'Water Heater': 60, 'Space Heater': 125, 'Range': 10, 'Dryer': 50,
+    } as Record<ApplianceCategory, number>,
+    DISTRIBUTION_SYSTEM_COSTS: {
+        'Ductwork Modification': [750, 2500], // For furnace -> central HP
+    } as Record<string, number[]>,
+    DUCTLESS_MINI_SPLIT_COSTS: {
+        base: [5000, 8500], // Cost for outdoor unit + first indoor head
+        perAdditionalZone: [1800, 3000], // Cost for each extra indoor head
+    } as Record<string, number[]>,
+    DECOMMISSIONING_COSTS: {
+        'Furnace': [300, 600], 'Boiler': [300, 600], 'Water Heater': [180, 350],
+        'Range': [120, 240], 'Dryer': [0, 0], 'Space Heater': [50, 100],
+    } as Record<ApplianceCategory, number[]>,
+    ELECTRICAL_UPGRADE_COSTS: {
+        'Permitting & Fees': [250, 750], 'New Circuit': [700, 1300], 'EV Charger Equipment': [500, 800],
+        'EV Charger Circuit': [1000, 1800], 'Sub-panel': [1800, 3000], 'Panel Upgrade to 125A': [2500, 4200],
+        'Panel Upgrade to 150A': [3000, 5000], 'Panel Upgrade to 200A': [3800, 6000],
+        'Panel Upgrade to 400A': [6000, 10000], 'Supplemental Heater': [250, 500]
+    } as Record<string, number[]>,
 };
 
 
@@ -348,6 +343,8 @@ const townEl = document.getElementById('town') as HTMLInputElement;
 
 const annualHeatingThermsEl = document.getElementById('annual-heating-therms') as HTMLInputElement;
 const annualNonHeatingThermsEl = document.getElementById('annual-non-heating-therms') as HTMLInputElement;
+const annualExistingElecKwhEl = document.getElementById('annual-existing-elec-kwh') as HTMLInputElement;
+const existingPeakLoadAmpsEl = document.getElementById('existing-peak-load-amps') as HTMLInputElement;
 const panelAmperageEl = document.getElementById('panel-amperage') as HTMLSelectElement;
 const voltageEl = document.getElementById('voltage') as HTMLInputElement;
 const breakerSpacesEl = document.getElementById('breaker-spaces') as HTMLInputElement;
@@ -399,18 +396,25 @@ const modalApplianceGridEl = document.getElementById('modal-appliance-grid') as 
 const tabPlannerBtn = document.getElementById('tab-planner') as HTMLButtonElement;
 const tabReportBtn = document.getElementById('tab-report') as HTMLButtonElement;
 const tabMethodologyBtn = document.getElementById('tab-methodology') as HTMLButtonElement;
+const tabInputTablesBtn = document.getElementById('tab-input-tables') as HTMLButtonElement;
 const tabSaveLoadBtn = document.getElementById('tab-save-load') as HTMLButtonElement;
 const plannerContentEl = document.getElementById('planner-content') as HTMLDivElement;
 const reportContentWrapperEl = document.getElementById('report-content-wrapper') as HTMLDivElement;
 const fullReportContentEl = document.getElementById('full-report-content') as HTMLDivElement;
 const methodologyContentEl = document.getElementById('methodology-content') as HTMLDivElement;
+const inputTablesContentEl = document.getElementById('input-tables-content') as HTMLDivElement;
 const saveLoadContentEl = document.getElementById('save-load-content') as HTMLDivElement;
 
-// New Save/Load/Export elements
+// Project Save/Load/Export elements
 const exportPdfBtn = document.getElementById('export-pdf-btn') as HTMLButtonElement;
 const saveProjectBtn = document.getElementById('save-project-btn') as HTMLButtonElement;
 const loadProjectInput = document.getElementById('load-project-input') as HTMLInputElement;
 const loadedFilenameEl = document.getElementById('loaded-filename') as HTMLSpanElement;
+
+// Defaults Save/Load elements
+const saveDefaultsBtn = document.getElementById('save-defaults-btn') as HTMLButtonElement;
+const loadDefaultsInput = document.getElementById('load-defaults-input') as HTMLInputElement;
+const loadedDefaultsFilenameEl = document.getElementById('loaded-defaults-filename') as HTMLSpanElement;
 
 
 let lifetimeChart: any | null = null;
@@ -432,6 +436,8 @@ let state: State = {
   town: 'Gardner',
   annualHeatingTherms: 700,
   annualNonHeatingTherms: 250,
+  annualExistingElecKwh: 8000,
+  existingPeakLoadAmps: 30,
   panelAmps: 200,
   voltage: 240,
   breakerSpaces: 4,
@@ -600,8 +606,7 @@ function calculateAnalysis(includedAppliances: Appliance[], currentState: State)
     }
 
 
-    const assumedExistingLoad = currentState.panelAmps * 0.8 * 0.5;
-    const totalCalculatedLoad = assumedExistingLoad + diversifiedPeakAmps;
+    const totalCalculatedLoad = currentState.existingPeakLoadAmps + diversifiedPeakAmps;
     const panelCapacity = currentState.panelAmps * 0.8;
 
     let panelStatus: PlanningAnalysis['panelStatus'] = 'Not Required';
@@ -622,7 +627,8 @@ function calculateRebates(analysis: PlanningAnalysis, includedAppliances: Applia
     const rebates: RebateItem[] = [];
     if (includedAppliances.length === 0) return rebates;
 
-    const massSaveRebates = REGIONAL_DATA[state.region].massSaveRebates;
+    const massSaveRebates = defaultInputs.REGIONAL_DATA[state.region].massSaveRebates;
+    const federalRebates = defaultInputs.FEDERAL_REBATES;
 
     const recommendedApplianceTypes = new Set(
         analysis.recommendations
@@ -645,14 +651,14 @@ function calculateRebates(analysis: PlanningAnalysis, includedAppliances: Applia
     }
 
     // Federal IRA Rebates (25C Tax Credits)
-    if (recommendedApplianceTypes.has('Heat Pump') && FEDERAL_REBATES['Heat Pump']) {
-        rebates.push({ name: 'Federal IRA Heat Pump Tax Credit', amount: FEDERAL_REBATES['Heat Pump'] });
+    if (recommendedApplianceTypes.has('Heat Pump') && federalRebates['Heat Pump']) {
+        rebates.push({ name: 'Federal IRA Heat Pump Tax Credit', amount: federalRebates['Heat Pump'] });
     }
-    if (recommendedApplianceTypes.has('HPWH') && FEDERAL_REBATES['HPWH']) {
-        rebates.push({ name: 'Federal IRA HPWH Tax Credit', amount: FEDERAL_REBATES['HPWH'] });
+    if (recommendedApplianceTypes.has('HPWH') && federalRebates['HPWH']) {
+        rebates.push({ name: 'Federal IRA HPWH Tax Credit', amount: federalRebates['HPWH'] });
     }
-    if (analysis.panelStatus.startsWith('Upgrade') && recommendedApplianceTypes.has('Heat Pump') && FEDERAL_REBATES['Panel Upgrade']) {
-         rebates.push({ name: 'Federal IRA Panel Upgrade Tax Credit', amount: FEDERAL_REBATES['Panel Upgrade'] });
+    if (analysis.panelStatus.startsWith('Upgrade') && recommendedApplianceTypes.has('Heat Pump') && federalRebates['Panel Upgrade']) {
+         rebates.push({ name: 'Federal IRA Panel Upgrade Tax Credit', amount: federalRebates['Panel Upgrade'] });
     }
 
 
@@ -671,25 +677,25 @@ function calculateCostAnalysis(analysis: PlanningAnalysis, includedAppliances: A
         const category = definition.category;
         const costs: CostItem[] = [];
 
-        const [equipLow, equipHigh] = EQUIPMENT_COSTS[category][state.efficiencyTier];
+        const [equipLow, equipHigh] = defaultInputs.EQUIPMENT_COSTS[category][state.efficiencyTier];
         costs.push({ name: 'Equipment', low: equipLow, high: equipHigh });
 
-        const [installLow, installHigh] = INSTALLATION_COSTS[category];
+        const [installLow, installHigh] = defaultInputs.INSTALLATION_COSTS[category];
         costs.push({ name: 'Installation & Materials', low: installLow, high: installHigh });
 
-        const [decomLow, decomHigh] = DECOMMISSIONING_COSTS[category];
+        const [decomLow, decomHigh] = defaultInputs.DECOMMISSIONING_COSTS[category];
         if (decomHigh > 0) {
             costs.push({ name: 'Gas Decommissioning', low: decomLow, high: decomHigh });
         }
 
         // Add costs for heat distribution system based on original appliance
         if (category === 'Furnace') {
-            const [low, high] = DISTRIBUTION_SYSTEM_COSTS['Ductwork Modification'];
+            const [low, high] = defaultInputs.DISTRIBUTION_SYSTEM_COSTS['Ductwork Modification'];
             costs.push({ name: 'Ductwork Modification', low, high });
         } else if (category === 'Boiler') {
             const zones = Math.max(1, appliance.zones || 1); // Ensure at least 1 zone
-            const [baseLow, baseHigh] = DUCTLESS_MINI_SPLIT_COSTS.base;
-            const [perZoneLow, perZoneHigh] = DUCTLESS_MINI_SPLIT_COSTS.perAdditionalZone;
+            const [baseLow, baseHigh] = defaultInputs.DUCTLESS_MINI_SPLIT_COSTS.base;
+            const [perZoneLow, perZoneHigh] = defaultInputs.DUCTLESS_MINI_SPLIT_COSTS.perAdditionalZone;
         
             const lowCost = baseLow + Math.max(0, zones - 1) * perZoneLow;
             const highCost = baseHigh + Math.max(0, zones - 1) * perZoneHigh;
@@ -706,28 +712,28 @@ function calculateCostAnalysis(analysis: PlanningAnalysis, includedAppliances: A
     const evChargerCount = analysis.recommendations.filter(r => r.id.startsWith('ev-')).length;
     if (evChargerCount > 0) {
         // Equipment hardware cost
-        const [equipLow, equipHigh] = ELECTRICAL_UPGRADE_COSTS['EV Charger Equipment'];
+        const [equipLow, equipHigh] = defaultInputs.ELECTRICAL_UPGRADE_COSTS['EV Charger Equipment'];
         electricalCosts.push({ name: `EV Charging Station(s) (${evChargerCount})`, low: equipLow * evChargerCount, high: equipHigh * evChargerCount });
         // Circuit installation cost
-        const [circuitLow, circuitHigh] = ELECTRICAL_UPGRADE_COSTS['EV Charger Circuit'];
+        const [circuitLow, circuitHigh] = defaultInputs.ELECTRICAL_UPGRADE_COSTS['EV Charger Circuit'];
         electricalCosts.push({ name: `EV Charger Circuit(s) (${evChargerCount})`, low: circuitLow * evChargerCount, high: circuitHigh * evChargerCount });
     }
 
     // Add panel/sub-panel costs
     if (analysis.panelStatus.startsWith('Upgrade')) {
         const size = analysis.panelStatus.match(/\d+/)?.[0];
-        const key = `Panel Upgrade to ${size}A` as keyof typeof ELECTRICAL_UPGRADE_COSTS;
-        const [low, high] = ELECTRICAL_UPGRADE_COSTS[key];
+        const key = `Panel Upgrade to ${size}A` as keyof typeof defaultInputs.ELECTRICAL_UPGRADE_COSTS;
+        const [low, high] = defaultInputs.ELECTRICAL_UPGRADE_COSTS[key];
         electricalCosts.push({ name: 'Main Panel Upgrade', low, high });
     } else if (analysis.breakerStatus === 'Sub-panel Recommended') {
-        const [low, high] = ELECTRICAL_UPGRADE_COSTS['Sub-panel'];
+        const [low, high] = defaultInputs.ELECTRICAL_UPGRADE_COSTS['Sub-panel'];
         electricalCosts.push({ name: 'Sub-panel Installation', low, high });
     }
 
     // Add circuit costs for appliances
     const numApplianceCircuits = applianceRecs.length;
     if (numApplianceCircuits > 0) {
-        const [low, high] = ELECTRICAL_UPGRADE_COSTS['New Circuit'];
+        const [low, high] = defaultInputs.ELECTRICAL_UPGRADE_COSTS['New Circuit'];
         electricalCosts.push({ name: `${numApplianceCircuits} New Appliance Circuit(s)`, low: low * numApplianceCircuits, high: high * numApplianceCircuits });
     }
     
@@ -736,7 +742,7 @@ function calculateCostAnalysis(analysis: PlanningAnalysis, includedAppliances: A
     const numHeaters = boilerAppliances.reduce((sum, app) => sum + (app.supplementalHeaters || 0), 0);
     
     if (numHeaters > 0) {
-        const [low, high] = ELECTRICAL_UPGRADE_COSTS['Supplemental Heater'];
+        const [low, high] = defaultInputs.ELECTRICAL_UPGRADE_COSTS['Supplemental Heater'];
         electricalCosts.push({
             name: `Supplemental Heaters (${numHeaters} units)`,
             low: low * numHeaters,
@@ -746,7 +752,7 @@ function calculateCostAnalysis(analysis: PlanningAnalysis, includedAppliances: A
 
     // Add permitting costs if any work is being done
     if (applianceRecs.length > 0 || evChargerCount > 0) {
-        const [low, high] = ELECTRICAL_UPGRADE_COSTS['Permitting & Fees'];
+        const [low, high] = defaultInputs.ELECTRICAL_UPGRADE_COSTS['Permitting & Fees'];
         electricalCosts.push({ name: 'Permitting & Fees', low, high });
     }
 
@@ -843,16 +849,21 @@ function calculateFinancialAnalysis(costAnalysis: CostAnalysis, includedApplianc
     const { heatingTherms, nonHeatingTherms } = getThermsForSelection(includedAppliances, state.appliances, state);
     const totalTherms = heatingTherms + nonHeatingTherms;
     
-    // Calculate fuel/energy costs
+    // Calculate current costs
     const currentAnnualGasCost = totalTherms * state.gasPricePerTherm;
-    
+    // For simplicity, TOU rates are not applied to existing electrical usage, as that usage profile is unknown.
+    const currentAnnualElecCost = state.annualExistingElecKwh * state.electricityPricePerKwh;
+
+    // Calculate projected costs
+    const totalProjectedAnnualKwh = projectedAnnualKwh + state.annualExistingElecKwh;
     let projectedAnnualElecCost = 0;
     if (state.useTouRates) {
-        const offPeakKwh = projectedAnnualKwh * (state.offPeakUsagePercent / 100);
-        const peakKwh = projectedAnnualKwh * (1 - (state.offPeakUsagePercent / 100));
+        // A simplifying assumption: the existing load and new load will follow the same peak/off-peak split.
+        const offPeakKwh = totalProjectedAnnualKwh * (state.offPeakUsagePercent / 100);
+        const peakKwh = totalProjectedAnnualKwh * (1 - (state.offPeakUsagePercent / 100));
         projectedAnnualElecCost = (offPeakKwh * state.offPeakPrice) + (peakKwh * state.peakPrice);
     } else {
-        projectedAnnualElecCost = projectedAnnualKwh * state.electricityPricePerKwh;
+        projectedAnnualElecCost = totalProjectedAnnualKwh * state.electricityPricePerKwh;
     }
 
 
@@ -861,13 +872,12 @@ function calculateFinancialAnalysis(costAnalysis: CostAnalysis, includedApplianc
     let projectedAnnualMaintenanceCost = 0;
     includedAppliances.forEach(app => {
         const category = APPLIANCE_DEFINITIONS[app.key].category;
-        // Fix: Corrected typo in variable name from GAS_APPLIANCE_MAINTENANCE_ COSTS to GAS_APPLIANCE_MAINTENANCE_COSTS
-        currentAnnualMaintenanceCost += GAS_APPLIANCE_MAINTENANCE_COSTS[category] || 0;
-        projectedAnnualMaintenanceCost += ELECTRIC_APPLIANCE_MAINTENANCE_COSTS[category] || 0;
+        currentAnnualMaintenanceCost += defaultInputs.GAS_APPLIANCE_MAINTENANCE_COSTS[category] || 0;
+        projectedAnnualMaintenanceCost += defaultInputs.ELECTRIC_APPLIANCE_MAINTENANCE_COSTS[category] || 0;
     });
     
     // Calculate totals
-    const totalCurrentAnnualCost = currentAnnualGasCost + currentAnnualMaintenanceCost;
+    const totalCurrentAnnualCost = currentAnnualGasCost + currentAnnualElecCost + currentAnnualMaintenanceCost;
     const totalProjectedAnnualCost = projectedAnnualElecCost + projectedAnnualMaintenanceCost;
     const netAnnualSavings = totalCurrentAnnualCost - totalProjectedAnnualCost;
 
@@ -879,6 +889,7 @@ function calculateFinancialAnalysis(costAnalysis: CostAnalysis, includedApplianc
 
     return {
         currentAnnualGasCost,
+        currentAnnualElecCost,
         projectedAnnualElecCost,
         currentAnnualMaintenanceCost,
         projectedAnnualMaintenanceCost,
@@ -900,7 +911,7 @@ function calculateEnvironmentalImpact(includedAppliances: Appliance[], state: St
     const currentAnnualGasCo2e100Kg = currentAnnualGasCo2Kg + (currentAnnualCh4Kg * GWP100_CH4);
 
     // Projected electric emissions (Year 1)
-    const projectedAnnualElecCo2Kg = projectedAnnualKwh * REGIONAL_DATA[state.region].co2KgPerKwh;
+    const projectedAnnualElecCo2Kg = projectedAnnualKwh * defaultInputs.REGIONAL_DATA[state.region].co2KgPerKwh;
 
     // Reductions (Year 1)
     const annualGhgReductionCo2e20Kg = currentAnnualGasCo2e20Kg - projectedAnnualElecCo2Kg;
@@ -911,7 +922,7 @@ function calculateEnvironmentalImpact(includedAppliances: Appliance[], state: St
 
     // Projected electric emissions (Year 15 with decarbonization)
     const decarbonizationFactor = Math.pow(1 - (state.gridDecarbonizationRate / 100), LIFETIME_YEARS - 1);
-    const finalGridCo2KgPerKwh = REGIONAL_DATA[state.region].co2KgPerKwh * decarbonizationFactor;
+    const finalGridCo2KgPerKwh = defaultInputs.REGIONAL_DATA[state.region].co2KgPerKwh * decarbonizationFactor;
     const projectedYear15ElecCo2Kg = projectedAnnualKwh * finalGridCo2KgPerKwh;
     const annualGhgReductionCo2e100KgYear15 = currentAnnualGasCo2e100Kg - projectedYear15ElecCo2Kg;
 
@@ -1490,6 +1501,21 @@ function renderReport(planningAnalysis: PlanningAnalysis, costAnalysis: CostAnal
             ghg100yrValue = ghgReduction100yr / GHG_CONVERSION_FACTORS.KG_CO2_PER_GALLON_GASOLINE;
             ghgUnitLabel = 'gallons of gas';
             break;
+        case 'miles':
+            ghg20yrValue = ghgReduction20yr * MILES_DRIVEN_PER_KG_CO2;
+            ghg100yrValue = ghgReduction100yr * MILES_DRIVEN_PER_KG_CO2;
+            ghgUnitLabel = 'miles driven';
+            break;
+        case 'oil':
+            ghg20yrValue = ghgReduction20yr / GHG_CONVERSION_FACTORS.KG_CO2E_PER_BARREL_OIL;
+            ghg100yrValue = ghgReduction100yr / GHG_CONVERSION_FACTORS.KG_CO2E_PER_BARREL_OIL;
+            ghgUnitLabel = 'barrels of oil';
+            break;
+        case 'trees':
+            ghg20yrValue = ghgReduction20yr / GHG_CONVERSION_FACTORS.KG_CO2E_PER_TREE_10_YEARS;
+            ghg100yrValue = ghgReduction100yr / GHG_CONVERSION_FACTORS.KG_CO2E_PER_TREE_10_YEARS;
+            ghgUnitLabel = 'tree seedlings grown for 10 yrs';
+            break;
         case 'kg':
         default:
             ghg20yrValue = ghgReduction20yr;
@@ -1602,7 +1628,9 @@ function renderFullReport(planningAnalysis: PlanningAnalysis, costAnalysis: Cost
             <tr><th>Climate Zone</th><td>Zone 5 (Statewide)</td></tr>
             <tr><th>Heating Gas Usage</th><td>${formatNumber(state.annualHeatingTherms, 0)} therms/yr</td></tr>
             <tr><th>Non-Heating Gas Usage</th><td>${formatNumber(state.annualNonHeatingTherms, 0)} therms/yr</td></tr>
+            <tr><th>Existing Annual Electric Usage</th><td>${formatNumber(state.annualExistingElecKwh, 0)} kWh/yr</td></tr>
             <tr><th>Main Panel</th><td>${state.panelAmps}A @ ${state.voltage}V</td></tr>
+            <tr><th>Existing Peak Load</th><td>${formatNumber(state.existingPeakLoadAmps, 0)} Amps</td></tr>
             <tr><th>Available Breaker Spaces</th><td>${state.breakerSpaces}</td></tr>
             ${state.facilityType === 'Residential'
                 ? `<tr><th>EV Charger Included</th><td>${state.evCharger === 'none' ? 'None' : `Level 2 (${state.evCharger})`}</td></tr>`
@@ -1689,8 +1717,33 @@ function renderFullReport(planningAnalysis: PlanningAnalysis, costAnalysis: Cost
                 </tr>
              </tbody>
         </table>
-        <p style="margin-top: 1rem;">The diversified load is used for the final recommendation:</p>
-        <p><strong>Breaker Status:</strong> ${planningAnalysis.breakerStatus}<br><strong>Panel Status:</strong> ${planningAnalysis.panelStatus}</p>
+        <h4 class="full-report-subsection-title">Panel Capacity Analysis</h4>
+        <p>The diversified load of the new appliances is added to your estimated existing peak load to determine the total projected demand on your electrical panel. This total is compared against 80% of your panel's rated capacity, as required by the National Electrical Code (NEC) for continuous loads.</p>
+        <table class="full-report-table">
+            <tbody>
+                <tr>
+                    <td><strong>A. Estimated Existing Peak Load</strong></td>
+                    <td style="text-align: right;">${formatNumber(state.existingPeakLoadAmps, 1)} A</td>
+                </tr>
+                <tr>
+                    <td><strong>B. Diversified Load of New Appliances</strong></td>
+                    <td style="text-align: right;">${formatNumber(planningAnalysis.diversifiedPeakAmps, 1)} A</td>
+                </tr>
+                <tr class="subtotal-row">
+                    <td><strong>Total Projected Peak Load (A + B)</strong></td>
+                    <td style="text-align: right;"><strong>${formatNumber(state.existingPeakLoadAmps + planningAnalysis.diversifiedPeakAmps, 1)} A</strong></td>
+                </tr>
+                <tr>
+                    <td><strong>Panel Capacity (80% of ${state.panelAmps}A)</strong></td>
+                    <td style="text-align: right;">${formatNumber(state.panelAmps * 0.8, 1)} A</td>
+                </tr>
+                <tr class="total-row">
+                    <td><strong>Status</strong></td>
+                    <td style="text-align: right;"><strong>${planningAnalysis.panelStatus}</strong></td>
+                </tr>
+            </tbody>
+        </table>
+        <p style="margin-top: 1rem;"><strong>Breaker Status Recommendation:</strong> ${planningAnalysis.breakerStatus}</p>
         <div class="chart-container" style="height: 350px; margin-top: 1.5rem; max-width: 600px; margin-left: auto; margin-right: auto;">
             <canvas id="full-report-load-contribution-chart"></canvas>
         </div>
@@ -1733,8 +1786,8 @@ function renderFullReport(planningAnalysis: PlanningAnalysis, costAnalysis: Cost
     const totalTherms = heatingTherms + nonHeatingTherms;
     const upstreamCh4Kg = totalTherms * KG_CH4_IN_THERM * UPSTREAM_LEAKAGE_RATE;
     const onsiteCh4Kg = totalTherms * KG_CH4_IN_THERM * ONSITE_SLIPPAGE_RATE;
-    const emissionsFactor = REGIONAL_DATA[state.region].co2KgPerKwh;
-    const regionName = REGIONAL_DATA[state.region].name;
+    const emissionsFactor = defaultInputs.REGIONAL_DATA[state.region].co2KgPerKwh;
+    const regionName = defaultInputs.REGIONAL_DATA[state.region].name;
 
 
     let environmentalHtml = `
@@ -1925,13 +1978,14 @@ function renderFullReport(planningAnalysis: PlanningAnalysis, costAnalysis: Cost
     let rebatesHtml = '';
     if (costAnalysis.rebates.length > 0) {
         let rebateListItems = '';
-        const massSaveRebates = REGIONAL_DATA[state.region].massSaveRebates;
+        const massSaveRebates = defaultInputs.REGIONAL_DATA[state.region].massSaveRebates;
+        const federalRebates = defaultInputs.FEDERAL_REBATES;
 
         if (costAnalysis.rebates.some(r => r.name.includes('Mass Save Heat Pump'))) {
             rebateListItems += `<li><strong>Mass Save Whole-Home Heat Pump Rebate (${formatCurrency(massSaveRebates['Heat Pump'])}):</strong> This is the largest state incentive, typically available when you install a heat pump system that serves as the sole source of heating for your entire home.</li>`;
         }
         if (costAnalysis.rebates.some(r => r.name.includes('Federal IRA Heat Pump'))) {
-            rebateListItems += `<li><strong>Federal IRA 25C Tax Credit for Heat Pumps (up to ${formatCurrency(FEDERAL_REBATES['Heat Pump'])}):</strong> A federal tax credit available for qualifying high-efficiency heat pump installations.</li>`;
+            rebateListItems += `<li><strong>Federal IRA 25C Tax Credit for Heat Pumps (up to ${formatCurrency(federalRebates['Heat Pump'])}):</strong> A federal tax credit available for qualifying high-efficiency heat pump installations.</li>`;
         }
         if (costAnalysis.rebates.some(r => r.name.includes('HPWH'))) {
             rebateListItems += `<li><strong>State & Federal HPWH Incentives:</strong> Combined incentives are available for replacing a gas or standard electric water heater with a high-efficiency heat pump model.</li>`;
@@ -1950,19 +2004,48 @@ function renderFullReport(planningAnalysis: PlanningAnalysis, costAnalysis: Cost
     }
 
     let operatingCostHtml = `
-        <p>This analysis compares the estimated annual operating costs of your current gas appliances with the projected costs for their new electric replacements. Costs include both fuel/energy and routine annual maintenance.</p>
+        <p>This analysis compares the total estimated annual utility bills before and after electrification.</p>
         <table class="full-report-table">
             <thead>
                 <tr>
-                    <th>Cost Component</th>
-                    <th style="text-align: right;">Current Gas System</th>
-                    <th style="text-align: right;">Projected Electric System</th>
+                    <th></th>
+                    <th style="text-align: right;">Before Electrification</th>
+                    <th style="text-align: right;">After Electrification</th>
                 </tr>
             </thead>
             <tbody>
                 <tr>
-                    <td>Annual Fuel/Energy Cost</td>
+                    <td>Annual Gas Bill</td>
                     <td style="text-align: right;">${formatCurrency(financialAnalysis.currentAnnualGasCost)}</td>
+                    <td style="text-align: right;">$0</td>
+                </tr>
+                <tr>
+                    <td>Annual Electric Bill</td>
+                    <td style="text-align: right;">${formatCurrency(financialAnalysis.currentAnnualElecCost)}</td>
+                    <td style="text-align: right;">${formatCurrency(financialAnalysis.projectedAnnualElecCost)}</td>
+                </tr>
+                <tr class="subtotal-row">
+                    <td><strong>Total Annual Utility Cost (Energy Only)</strong></td>
+                    <td style="text-align: right;"><strong>${formatCurrency(financialAnalysis.currentAnnualGasCost + financialAnalysis.currentAnnualElecCost)}</strong></td>
+                    <td style="text-align: right;"><strong>${formatCurrency(financialAnalysis.projectedAnnualElecCost)}</strong></td>
+                </tr>
+            </tbody>
+        </table>
+        
+        <h4 class="full-report-subsection-title">Operating Cost Component Breakdown</h4>
+        <p>This table breaks down the total operating costs, including both energy and estimated routine maintenance, to determine the net annual savings.</p>
+        <table class="full-report-table">
+            <thead>
+                <tr>
+                    <th>Cost Component</th>
+                    <th style="text-align: right;">Current System (Gas + Electric)</th>
+                    <th style="text-align: right;">Projected System (All-Electric)</th>
+                </tr>
+            </thead>
+            <tbody>
+                <tr>
+                    <td>Annual Energy Cost</td>
+                    <td style="text-align: right;">${formatCurrency(financialAnalysis.currentAnnualGasCost + financialAnalysis.currentAnnualElecCost)}</td>
                     <td style="text-align: right;">${formatCurrency(financialAnalysis.projectedAnnualElecCost)}</td>
                 </tr>
                 <tr>
@@ -2124,6 +2207,109 @@ function renderAppliances() {
   });
 }
 
+function renderInputTables() {
+    const createInput = (value: number, type: 'number' | 'text' = 'number', dataset: Record<string, string> = {}) => {
+        const input = document.createElement('input');
+        input.type = type;
+        input.value = value.toString();
+        Object.entries(dataset).forEach(([key, val]) => input.dataset[key] = val);
+        return input;
+    };
+
+    // Utility Costs
+    // Fix: Cast to HTMLTableSectionElement to access table-specific properties like 'rows'.
+    const utilityTbody = document.getElementById('defaults-utility-tbody') as HTMLTableSectionElement;
+    utilityTbody.innerHTML = `
+        <tr><td>Gas Price ($/therm)</td><td></td></tr>
+        <tr><td>Elec Price ($/kWh)</td><td></td></tr>
+        <tr><td>Gas Price Escalation (%/yr)</td><td></td></tr>
+        <tr><td>Elec Price Escalation (%/yr)</td><td></td></tr>
+        <tr><td>High-Risk Gas Escalation (%/yr)</td><td></td></tr>
+        <tr><td>Grid Decarbonization Rate (%/yr)</td><td></td></tr>
+    `;
+    utilityTbody.rows[0].cells[1].appendChild(createInput(state.gasPricePerTherm, 'number', { key: 'gasPricePerTherm' }));
+    utilityTbody.rows[1].cells[1].appendChild(createInput(state.electricityPricePerKwh, 'number', { key: 'electricityPricePerKwh' }));
+    utilityTbody.rows[2].cells[1].appendChild(createInput(state.gasPriceEscalation, 'number', { key: 'gasPriceEscalation' }));
+    utilityTbody.rows[3].cells[1].appendChild(createInput(state.electricityPriceEscalation, 'number', { key: 'electricityPriceEscalation' }));
+    utilityTbody.rows[4].cells[1].appendChild(createInput(state.highRiskGasEscalation, 'number', { key: 'highRiskGasEscalation' }));
+    utilityTbody.rows[5].cells[1].appendChild(createInput(state.gridDecarbonizationRate, 'number', { key: 'gridDecarbonizationRate' }));
+
+    // Equipment Costs
+    // Fix: Cast to HTMLTableSectionElement to access table-specific properties like 'insertRow'.
+    const equipmentTbody = document.getElementById('defaults-equipment-tbody') as HTMLTableSectionElement;
+    equipmentTbody.innerHTML = '';
+    for (const category in defaultInputs.EQUIPMENT_COSTS) {
+        const row = equipmentTbody.insertRow();
+        row.insertCell().textContent = category;
+        const tiers: EfficiencyTier[] = ['Standard', 'High', 'Premium'];
+        tiers.forEach(tier => {
+            const [low, high] = defaultInputs.EQUIPMENT_COSTS[category as ApplianceCategory][tier];
+            row.insertCell().appendChild(createInput(low, 'number', { category, tier, range: 'low' }));
+            row.insertCell().appendChild(createInput(high, 'number', { category, tier, range: 'high' }));
+        });
+    }
+    
+    // Installation Costs
+    // Fix: Cast to HTMLTableSectionElement to access table-specific properties like 'insertRow'.
+    const installationTbody = document.getElementById('defaults-installation-tbody') as HTMLTableSectionElement;
+    installationTbody.innerHTML = '';
+    for (const category in defaultInputs.INSTALLATION_COSTS) {
+        const row = installationTbody.insertRow();
+        row.insertCell().textContent = category;
+        const [low, high] = defaultInputs.INSTALLATION_COSTS[category as ApplianceCategory];
+        row.insertCell().appendChild(createInput(low, 'number', { category, range: 'low' }));
+        row.insertCell().appendChild(createInput(high, 'number', { category, range: 'high' }));
+    }
+
+    // Distribution Costs
+    // Fix: Cast to HTMLTableSectionElement to access table-specific properties like 'insertRow'.
+    const distributionTbody = document.getElementById('defaults-distribution-tbody') as HTMLTableSectionElement;
+    distributionTbody.innerHTML = '';
+    Object.entries({ ...defaultInputs.DISTRIBUTION_SYSTEM_COSTS, ...defaultInputs.DUCTLESS_MINI_SPLIT_COSTS }).forEach(([key, [low, high]]) => {
+        const row = distributionTbody.insertRow();
+        row.insertCell().textContent = key;
+        row.insertCell().appendChild(createInput(low, 'number', { key, range: 'low' }));
+        row.insertCell().appendChild(createInput(high, 'number', { key, range: 'high' }));
+    });
+    
+    // Decommissioning Costs
+    // Fix: Cast to HTMLTableSectionElement to access table-specific properties like 'insertRow'.
+    const decommissioningTbody = document.getElementById('defaults-decommissioning-tbody') as HTMLTableSectionElement;
+    decommissioningTbody.innerHTML = '';
+    for (const category in defaultInputs.DECOMMISSIONING_COSTS) {
+        const row = decommissioningTbody.insertRow();
+        row.insertCell().textContent = category;
+        const [low, high] = defaultInputs.DECOMMISSIONING_COSTS[category as ApplianceCategory];
+        row.insertCell().appendChild(createInput(low, 'number', { category, range: 'low' }));
+        row.insertCell().appendChild(createInput(high, 'number', { category, range: 'high' }));
+    }
+
+    // Electrical Costs
+    // Fix: Cast to HTMLTableSectionElement to access table-specific properties like 'insertRow'.
+    const electricalTbody = document.getElementById('defaults-electrical-tbody') as HTMLTableSectionElement;
+    electricalTbody.innerHTML = '';
+    for (const key in defaultInputs.ELECTRICAL_UPGRADE_COSTS) {
+        const row = electricalTbody.insertRow();
+        row.insertCell().textContent = key;
+        const [low, high] = defaultInputs.ELECTRICAL_UPGRADE_COSTS[key];
+        row.insertCell().appendChild(createInput(low, 'number', { key, range: 'low' }));
+        row.insertCell().appendChild(createInput(high, 'number', { key, range: 'high' }));
+    }
+
+    // Incentives
+    // Fix: Cast to HTMLTableSectionElement to access table-specific properties like 'insertRow'.
+    const incentivesTbody = document.getElementById('defaults-incentives-tbody') as HTMLTableSectionElement;
+    incentivesTbody.innerHTML = '';
+    const incentiveKeys = Object.keys(defaultInputs.REGIONAL_DATA.MA.massSaveRebates);
+    incentiveKeys.forEach(key => {
+        const row = incentivesTbody.insertRow();
+        row.insertCell().textContent = key;
+        row.insertCell().appendChild(createInput(defaultInputs.REGIONAL_DATA.MA.massSaveRebates[key], 'number', { source: 'massSave', key }));
+        row.insertCell().appendChild(createInput(defaultInputs.FEDERAL_REBATES[key] || 0, 'number', { source: 'federal', key }));
+    });
+}
+
+
 function render() {
   const includedAppliances = state.appliances.filter(a => a.included);
   const planningAnalysis = calculateAnalysis(includedAppliances, state);
@@ -2177,6 +2363,8 @@ function updateStateFromUI() {
     town: townEl.value,
     annualHeatingTherms: parseInt(annualHeatingThermsEl.value, 10) || 0,
     annualNonHeatingTherms: parseInt(annualNonHeatingThermsEl.value, 10) || 0,
+    annualExistingElecKwh: parseInt(annualExistingElecKwhEl.value, 10) || 0,
+    existingPeakLoadAmps: parseInt(existingPeakLoadAmpsEl.value, 10) || 0,
     panelAmps: parseInt(panelAmperageEl.value, 10),
     voltage: parseInt(voltageEl.value, 10) || 240,
     breakerSpaces: parseInt(breakerSpacesEl.value, 10) || 0,
@@ -2206,6 +2394,8 @@ function updateUIFromState() {
     townEl.value = state.town;
     annualHeatingThermsEl.value = state.annualHeatingTherms.toString();
     annualNonHeatingThermsEl.value = state.annualNonHeatingTherms.toString();
+    annualExistingElecKwhEl.value = state.annualExistingElecKwh.toString();
+    existingPeakLoadAmpsEl.value = state.existingPeakLoadAmps.toString();
     panelAmperageEl.value = state.panelAmps.toString();
     voltageEl.value = state.voltage.toString();
     breakerSpacesEl.value = state.breakerSpaces.toString();
@@ -2251,6 +2441,21 @@ function handleFacilityTypeChange() {
     if (usageDefaults) {
         annualHeatingThermsEl.value = usageDefaults.heating.toString();
         annualNonHeatingThermsEl.value = usageDefaults.nonHeating.toString();
+    }
+    
+    // Set default existing electrical usage and peak load
+    const elecUsageDefault = DEFAULT_EXISTING_ELEC_USAGE_BY_FACILITY[facilityType];
+    if (elecUsageDefault) {
+        annualExistingElecKwhEl.value = elecUsageDefault.toString();
+        // Estimate peak load from annual kWh. This is a rough heuristic.
+        // Assumes a load factor of about 20-25% (8760 hours/year).
+        // Peak kW ~= (Annual kWh / 8760) * 4.
+        // Amps = (kW * 1000) / voltage
+        const avgKw = elecUsageDefault / 8760;
+        const peakKw = avgKw * 4; // Peaking factor
+        const voltage = parseInt(voltageEl.value, 10) || 240;
+        const peakAmps = (peakKw * 1000) / voltage;
+        existingPeakLoadAmpsEl.value = Math.round(peakAmps).toString();
     }
     
     // Set default EV stations for non-residential
@@ -2343,8 +2548,8 @@ function handleTabClick(event: MouseEvent) {
     
     if (clickedButton.classList.contains('active')) return;
     
-    const allTabs = [tabPlannerBtn, tabReportBtn, tabMethodologyBtn, tabSaveLoadBtn];
-    const allContent = [plannerContentEl, reportContentWrapperEl, methodologyContentEl, saveLoadContentEl];
+    const allTabs = [tabPlannerBtn, tabReportBtn, tabMethodologyBtn, tabInputTablesBtn, tabSaveLoadBtn];
+    const allContent = [plannerContentEl, reportContentWrapperEl, methodologyContentEl, inputTablesContentEl, saveLoadContentEl];
 
     allTabs.forEach(tab => tab.classList.remove('active'));
     allContent.forEach(content => content.classList.remove('active'));
@@ -2354,6 +2559,7 @@ function handleTabClick(event: MouseEvent) {
     if (clickedButton === tabPlannerBtn) plannerContentEl.classList.add('active');
     else if (clickedButton === tabReportBtn) reportContentWrapperEl.classList.add('active');
     else if (clickedButton === tabMethodologyBtn) methodologyContentEl.classList.add('active');
+    else if (clickedButton === tabInputTablesBtn) inputTablesContentEl.classList.add('active');
     else if (clickedButton === tabSaveLoadBtn) saveLoadContentEl.classList.add('active');
     
     // Re-render charts if the report tab is now active, in case it wasn't visible before
@@ -2424,6 +2630,124 @@ function handleLoadProject(event: Event) {
     reader.readAsText(file);
 }
 
+function handleSaveDefaults() {
+    const defaultsJson = JSON.stringify(defaultInputs, null, 2);
+    const blob = new Blob([defaultsJson], { type: 'application/json' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = 'electrification-defaults.json';
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    URL.revokeObjectURL(url);
+}
+
+function handleLoadDefaults(event: Event) {
+    const input = event.target as HTMLInputElement;
+    if (!input.files || input.files.length === 0) {
+        loadedDefaultsFilenameEl.textContent = 'No file selected.';
+        return;
+    }
+
+    const file = input.files[0];
+    loadedDefaultsFilenameEl.textContent = file.name;
+    const reader = new FileReader();
+
+    reader.onload = (e) => {
+        try {
+            const text = e.target?.result;
+            if (typeof text !== 'string') throw new Error('File could not be read as text.');
+            
+            const loadedDefaults = JSON.parse(text);
+
+            if (!loadedDefaults.EQUIPMENT_COSTS || !loadedDefaults.FEDERAL_REBATES) {
+                throw new Error('Invalid defaults file format.');
+            }
+
+            // A simple merge to avoid breaking the app if the loaded file is missing new keys
+            for (const key in defaultInputs) {
+                if (loadedDefaults[key]) {
+                    (defaultInputs as any)[key] = loadedDefaults[key];
+                }
+            }
+            
+            // Update the main state with the new utility price defaults
+            state.gasPricePerTherm = defaultInputs.REGIONAL_DATA.MA.gasPrice;
+            state.electricityPricePerKwh = defaultInputs.REGIONAL_DATA.MA.elecPrice;
+
+            renderInputTables();
+            updateUIFromState();
+            render();
+            alert('Default values loaded successfully!');
+
+        } catch (error) {
+            console.error('Failed to load or parse defaults file:', error);
+            alert(`Error: Could not load defaults file. Please ensure it is a valid file.\n\n(${(error as Error).message})`);
+            loadedDefaultsFilenameEl.textContent = 'Load failed. Please try again.';
+        }
+    };
+    reader.readAsText(file);
+}
+
+function updateDefaultsFromUI(event: Event) {
+    const input = event.target as HTMLInputElement;
+    const value = parseFloat(input.value);
+    if (isNaN(value)) return;
+
+    const { category, tier, range, key, source } = input.dataset;
+
+    const parentTbody = input.closest('tbody');
+    if (!parentTbody) return;
+
+    switch (parentTbody.id) {
+        case 'defaults-utility-tbody':
+            if (key) (state as any)[key] = value;
+            break;
+        case 'defaults-equipment-tbody':
+            if (category && tier && range) {
+                const costArray = defaultInputs.EQUIPMENT_COSTS[category as ApplianceCategory][tier as EfficiencyTier];
+                range === 'low' ? costArray[0] = value : costArray[1] = value;
+            }
+            break;
+        case 'defaults-installation-tbody':
+             if (category && range) {
+                const costArray = defaultInputs.INSTALLATION_COSTS[category as ApplianceCategory];
+                range === 'low' ? costArray[0] = value : costArray[1] = value;
+            }
+            break;
+        case 'defaults-distribution-tbody':
+            if (key && range) {
+                const costArray = (defaultInputs.DISTRIBUTION_SYSTEM_COSTS[key] || defaultInputs.DUCTLESS_MINI_SPLIT_COSTS[key]);
+                range === 'low' ? costArray[0] = value : costArray[1] = value;
+            }
+            break;
+        case 'defaults-decommissioning-tbody':
+             if (category && range) {
+                const costArray = defaultInputs.DECOMMISSIONING_COSTS[category as ApplianceCategory];
+                range === 'low' ? costArray[0] = value : costArray[1] = value;
+            }
+            break;
+        case 'defaults-electrical-tbody':
+             if (key && range) {
+                const costArray = defaultInputs.ELECTRICAL_UPGRADE_COSTS[key];
+                range === 'low' ? costArray[0] = value : costArray[1] = value;
+            }
+            break;
+        case 'defaults-incentives-tbody':
+            if (key && source) {
+                if (source === 'massSave') defaultInputs.REGIONAL_DATA.MA.massSaveRebates[key] = value;
+                if (source === 'federal') defaultInputs.FEDERAL_REBATES[key] = value;
+            }
+            break;
+    }
+    
+    // After updating the defaults, update the main planner UI and re-render the report
+    updateUIFromState();
+    render();
+}
+
+
 // --- INITIALIZATION ---
 const allInputs = document.querySelectorAll('#inputs input, #inputs select');
 allInputs.forEach(input => {
@@ -2444,32 +2768,30 @@ modalApplianceGridEl.addEventListener('click', handleModalGridClick);
 tabPlannerBtn.addEventListener('click', handleTabClick);
 tabReportBtn.addEventListener('click', handleTabClick);
 tabMethodologyBtn.addEventListener('click', handleTabClick);
+tabInputTablesBtn.addEventListener('click', handleTabClick);
 tabSaveLoadBtn.addEventListener('click', handleTabClick);
 
-// Save/Load/Export Listeners
+// Save/Load Listeners
 exportPdfBtn.addEventListener('click', handleExportPdf);
 saveProjectBtn.addEventListener('click', handleSaveProject);
 loadProjectInput.addEventListener('change', handleLoadProject);
+saveDefaultsBtn.addEventListener('click', handleSaveDefaults);
+loadDefaultsInput.addEventListener('change', handleLoadDefaults);
 
-appliancesListEl.addEventListener('click', (e) => {
-    const target = e.target as HTMLElement;
-    if (target.closest('.remove-btn')) {
-        handleRemoveAppliance(e);
-    } else if (target.classList.contains('include-in-plan') || (e.target as HTMLInputElement).type === 'number') {
-        // No need to call updateStateAndRender for number inputs, as 'input' event already handles it.
-        // This just handles the checkbox click specifically.
-        updateStateAndRender();
+// Input Tables Listeners (using event delegation)
+inputTablesContentEl.addEventListener('change', (event) => {
+    if ((event.target as HTMLElement).tagName === 'INPUT') {
+        updateDefaultsFromUI(event);
     }
 });
 
-appliancesListEl.addEventListener('input', (e) => {
-    const target = e.target as HTMLElement;
-    if (target.classList.contains('btu-rating') || target.classList.contains('efficiency-rating') || target.classList.contains('zones-rating') || target.classList.contains('supplemental-heaters-rating')) {
-        updateStateAndRender();
-    }
+// Remove Appliance Listener (using event delegation)
+appliancesListEl.addEventListener('click', handleRemoveAppliance);
+
+
+// Initial render on page load
+document.addEventListener('DOMContentLoaded', () => {
+    updateUIFromState();
+    renderInputTables();
+    render(); // Initial render with default state
 });
-
-
-// Initial population of default values and render
-updateUIFromState();
-handleFacilityTypeChange();

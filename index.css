@@ -805,6 +805,87 @@ input[type="number"]:focus, input[type="text"]:focus, select:focus {
     font-size: 0.9em;
 }
 
+/* Input Tables Styles */
+#input-tables-content .card {
+    margin-bottom: 2rem;
+}
+
+.defaults-actions {
+    display: flex;
+    gap: 1rem;
+    align-items: center;
+}
+
+.defaults-container {
+    display: flex;
+    flex-direction: column;
+    gap: 1.5rem;
+}
+
+.defaults-container details {
+    border: 1px solid var(--border-color);
+    border-radius: var(--border-radius);
+    background-color: var(--card-background);
+}
+
+.defaults-container summary {
+    padding: 1rem 1.5rem;
+    font-size: 1.1rem;
+    font-weight: 600;
+    cursor: pointer;
+    list-style: none;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+}
+
+.defaults-container summary::after {
+    content: '▶';
+    font-size: 0.8em;
+    transition: transform 0.2s;
+}
+
+.defaults-container details[open] > summary::after {
+    transform: rotate(90deg);
+}
+
+.defaults-table-container {
+    padding: 0 1.5rem 1.5rem 1.5rem;
+    overflow-x: auto;
+}
+
+.defaults-table {
+    width: 100%;
+    border-collapse: collapse;
+}
+
+.defaults-table th, .defaults-table td {
+    border: 1px solid var(--border-color);
+    padding: 0.75rem;
+    text-align: left;
+}
+
+.defaults-table th {
+    background-color: var(--background-color);
+    font-weight: 500;
+    text-align: center;
+    vertical-align: middle;
+}
+
+.defaults-table td {
+    white-space: nowrap;
+}
+
+.defaults-table td:first-child {
+    font-weight: 500;
+}
+
+.defaults-table input {
+    width: 100px;
+    padding: 0.5rem;
+    font-size: 0.9rem;
+    text-align: right;
+}
 
 footer {
     text-align: center;

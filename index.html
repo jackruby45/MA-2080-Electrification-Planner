@@ -22,7 +22,8 @@
             <button id="tab-planner" class="tab-button active" role="tab" aria-selected="true" aria-controls="planner-content">Planner</button>
             <button id="tab-report" class="tab-button" role="tab" aria-selected="false" aria-controls="report-content-wrapper">Report</button>
             <button id="tab-methodology" class="tab-button" role="tab" aria-selected="false" aria-controls="methodology-content">Methodology</button>
-            <button id="tab-save-load" class="tab-button" role="tab" aria-selected="false" aria-controls="save-load-content">Save/Load</button>
+            <button id="tab-input-tables" class="tab-button" role="tab" aria-selected="false" aria-controls="input-tables-content">Input Tables</button>
+            <button id="tab-save-load" class="tab-button" role="tab" aria-selected="false" aria-controls="save-load-content">Save/Load Project</button>
         </div>
 
         <div id="planner-content" class="tab-content active" role="tabpanel" aria-labelledby="tab-planner">
@@ -132,6 +133,28 @@
                                 </div>
                             </label>
                             <input type="number" id="breaker-spaces" name="breaker-spaces" value="4" min="0">
+                        </div>
+                         <div class="form-field">
+                            <label for="annual-existing-elec-kwh">Annual Electric Usage (kWh)
+                                 <div class="tooltip-container">
+                                    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" class="tooltip-icon">
+                                      <path fill-rule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7-4a1 1 0 11-2 0 1 1 0 012 0zM9 9a1 1 0 000 2v3a1 1 0 001 1h1a1 1 0 100-2v-3a1 1 0 00-1-1H9z" clip-rule="evenodd" />
+                                    </svg>
+                                    <span class="tooltip-text">Enter your total electricity usage for the last 12 months. This is found on your utility bill summary and provides a baseline for calculating total bill impact.</span>
+                                </div>
+                            </label>
+                            <input type="number" id="annual-existing-elec-kwh" name="annual-existing-elec-kwh" value="8000" min="0" step="100">
+                        </div>
+                        <div class="form-field">
+                            <label for="existing-peak-load-amps">Est. Existing Peak Load (Amps)
+                                 <div class="tooltip-container">
+                                    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" class="tooltip-icon">
+                                      <path fill-rule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7-4a1 1 0 11-2 0 1 1 0 012 0zM9 9a1 1 0 000 2v3a1 1 0 001 1h1a1 1 0 100-2v-3a1 1 0 00-1-1H9z" clip-rule="evenodd" />
+                                    </svg>
+                                    <span class="tooltip-text">The estimated peak power draw from existing appliances (A/C, lights, etc.). A reasonable estimate is calculated for you, but you can override it if you have a more accurate number from an electrician or your utility.</span>
+                                </div>
+                            </label>
+                            <input type="number" id="existing-peak-load-amps" name="existing-peak-load-amps" value="30" min="0" step="1">
                         </div>
                         <div id="residential-ev-charger-field" class="form-field">
                             <label for="ev-charger">Include EV Charger
@@ -292,7 +315,7 @@
                             <label for="grid-decarbonization-rate">Grid De-CO₂ Rate
                                <div class="tooltip-container">
                                     <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" class="tooltip-icon">
-                                      <path fill-rule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7-4a1 1 0 11-2 0 1 1 0 012 0zM9 9a1 1 H9z" clip-rule="evenodd" />
+                                      <path fill-rule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7-4a1 1 0 11-2 0 1 1 0 012 0zM9 9a1 1 0 000 2v3a1 1 0 001 1h1a1 1 0 100-2v-3a1 1 0 00-1-1H9z" clip-rule="evenodd" />
                                     </svg>
                                     <span class="tooltip-text">Projected annual reduction in grid emissions factor (%/yr) as more renewables come online. This shows how your project's emissions will decrease over time.</span>
                                 </div>
@@ -315,7 +338,10 @@
                                 <option value="kg">Kilograms (kg CO₂e)</option>
                                 <option value="tons">Metric Tons (t CO₂e)</option>
                                 <option value="cars">Cars off road (equivalent)</option>
+                                <option value="miles">Miles driven (equivalent)</option>
                                 <option value="gasoline">Gallons of gasoline (equivalent)</option>
+                                <option value="oil">Barrels of oil (equivalent)</option>
+                                <option value="trees">Tree seedlings grown for 10 yrs</option>
                             </select>
                         </div>
                      </div>
@@ -496,6 +522,118 @@
             <p>The calculations and default values in this tool are based on data from respected public sources, including the U.S. Environmental Protection Agency (EPA), the Energy Information Administration (EIA), the Intergovernmental Panel on Climate Change (IPCC AR6), ISO New England, and program data from Mass Save. Cost estimates are based on 2024 regional market analysis.</p>
             <p><strong>IMPORTANT:</strong> This is a sophisticated planning and estimation tool, not a substitute for a professional quote. All cost, electrical, and performance figures are estimates. It is <strong>essential</strong> to obtain detailed, binding quotes from licensed and insured local HVAC and electrical professionals before making any financial commitments.</p>
         </div>
+
+        <div id="input-tables-content" class="tab-content" role="tabpanel" aria-labelledby="tab-input-tables">
+            <div class="card">
+                <h3 class="card-title">Manage Default Input Values</h3>
+                <p>Edit the default cost and projection data used throughout the application. Your changes will be reflected in all calculations. You can save your custom defaults to a file and load them back in a future session.</p>
+                <div class="defaults-actions">
+                    <button id="save-defaults-btn" class="button-primary">
+                        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" width="20" height="20"><path d="M10.75 2.75a.75.75 0 00-1.5 0v8.614L6.295 8.235a.75.75 0 10-1.09 1.03l4.25 4.5a.75.75 0 001.09 0l4.25-4.5a.75.75 0 00-1.09-1.03l-2.955 3.129V2.75z" /><path d="M3.5 12.75a.75.75 0 00-1.5 0v2.5A2.75 2.75 0 004.75 18h10.5A2.75 2.75 0 0018 15.25v-2.5a.75.75 0 00-1.5 0v2.5c0 .69-.56 1.25-1.25 1.25H4.75c-.69 0-1.25-.56-1.25-1.25v-2.5z" /></svg>
+                        <span>Save Defaults</span>
+                    </button>
+                    <div class="form-field">
+                        <label for="load-defaults-input" class="button-secondary file-input-label">
+                            <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" width="20" height="20"><path d="M9.25 1.75a.75.75 0 01.75.75v8.614l2.955-3.129a.75.75 0 011.09 1.03l-4.25 4.5a.75.75 0 01-1.09 0l-4.25-4.5a.75.75 0 011.09-1.03L9.25 11.114V2.5a.75.75 0 01.75-.75z" /><path d="M3.5 12.75a.75.75 0 00-1.5 0v2.5A2.75 2.75 0 004.75 18h10.5A2.75 2.75 0 0018 15.25v-2.5a.75.75 0 00-1.5 0v2.5c0 .69-.56 1.25-1.25 1.25H4.75c-.69 0-1.25-.56-1.25-1.25v-2.5z" /></svg>
+                            <span>Load Defaults...</span>
+                        </label>
+                        <input type="file" id="load-defaults-input" accept=".json" class="sr-only">
+                        <span id="loaded-defaults-filename" class="loaded-filename">No file selected.</span>
+                    </div>
+                </div>
+            </div>
+
+            <div class="defaults-container">
+                <details open>
+                    <summary>Utility Costs & Projections</summary>
+                    <div class="defaults-table-container">
+                        <table class="defaults-table">
+                            <thead>
+                                <tr><th>Parameter</th><th>Value</th></tr>
+                            </thead>
+                            <tbody id="defaults-utility-tbody"></tbody>
+                        </table>
+                    </div>
+                </details>
+                <details>
+                    <summary>Incentives</summary>
+                     <div class="defaults-table-container">
+                        <table class="defaults-table">
+                            <thead>
+                                <tr><th>Incentive</th><th>Mass Save ($)</th><th>Federal IRA ($)</th></tr>
+                            </thead>
+                            <tbody id="defaults-incentives-tbody"></tbody>
+                        </table>
+                    </div>
+                </details>
+                <details>
+                    <summary>Equipment Costs</summary>
+                     <div class="defaults-table-container">
+                        <table class="defaults-table">
+                            <thead>
+                                <tr>
+                                    <th rowspan="2">Appliance</th>
+                                    <th colspan="2">Standard Efficiency</th>
+                                    <th colspan="2">High Efficiency</th>
+                                    <th colspan="2">Premium Efficiency</th>
+                                </tr>
+                                <tr>
+                                    <th>Low ($)</th><th>High ($)</th>
+                                    <th>Low ($)</th><th>High ($)</th>
+                                    <th>Low ($)</th><th>High ($)</th>
+                                </tr>
+                            </thead>
+                            <tbody id="defaults-equipment-tbody"></tbody>
+                        </table>
+                    </div>
+                </details>
+                <details>
+                    <summary>Installation & Labor Costs</summary>
+                     <div class="defaults-table-container">
+                        <table class="defaults-table">
+                            <thead>
+                                <tr><th>Appliance</th><th>Low ($)</th><th>High ($)</th></tr>
+                            </thead>
+                            <tbody id="defaults-installation-tbody"></tbody>
+                        </table>
+                    </div>
+                </details>
+                <details>
+                    <summary>Heat Distribution System Costs</summary>
+                     <div class="defaults-table-container">
+                        <table class="defaults-table">
+                            <thead>
+                                <tr><th>Item</th><th>Low ($)</th><th>High ($)</th></tr>
+                            </thead>
+                            <tbody id="defaults-distribution-tbody"></tbody>
+                        </table>
+                    </div>
+                </details>
+                <details>
+                    <summary>Decommissioning Costs</summary>
+                     <div class="defaults-table-container">
+                        <table class="defaults-table">
+                            <thead>
+                                <tr><th>Appliance</th><th>Low ($)</th><th>High ($)</th></tr>
+                            </thead>
+                            <tbody id="defaults-decommissioning-tbody"></tbody>
+                        </table>
+                    </div>
+                </details>
+                 <details>
+                    <summary>Electrical Upgrade Costs</summary>
+                     <div class="defaults-table-container">
+                        <table class="defaults-table">
+                            <thead>
+                                <tr><th>Item</th><th>Low ($)</th><th>High ($)</th></tr>
+                            </thead>
+                            <tbody id="defaults-electrical-tbody"></tbody>
+                        </table>
+                    </div>
+                </details>
+            </div>
+        </div>
+
 
         <div id="save-load-content" class="tab-content" role="tabpanel" aria-labelledby="tab-save-load">
             <div class="card">
